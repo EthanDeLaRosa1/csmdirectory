@@ -87,7 +87,7 @@ function unverifiedCount(d: Department) {
 
 function DirectoryPage() {
   const [query, setQuery] = useState("");
-  const [activeId, setActiveId] = useState(DEPARTMENTS[0].id);
+  const [activeId, setActiveId] = useState(DEPARTMENTS[0]!.id);
   const [placeholdersOnly, setPlaceholdersOnly] = useState(false);
 
   const q = query.trim().toLowerCase();
@@ -167,7 +167,7 @@ function DirectoryPage() {
           </p>
           <ul className="space-y-1">
             {DEPARTMENTS.map((d) => {
-              const Icon = ICONS[d.id];
+              const Icon = ICONS[d.id]!;
               const isActive = d.id === activeId && !q;
               const count = unverifiedCount(d);
               return (
@@ -228,7 +228,7 @@ function DirectoryPage() {
                 {matches?.length ?? 0} department{matches?.length === 1 ? "" : "s"} match “{query}”
               </p>
               {matches?.map(({ dept, lines }) => {
-                const Icon = ICONS[dept.id];
+                const Icon = ICONS[dept.id]!;
                 return (
                   <div key={dept.id} className="rounded-xl border border-border bg-surface p-5">
                     <button
