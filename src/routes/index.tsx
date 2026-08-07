@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Banknote,
@@ -13,9 +13,13 @@ import {
   TrendingUp,
   UserCog,
 } from "lucide-react";
-import { DEPARTMENTS, hasPlaceholder, type Department } from "@/data/directory";
+import type { Department } from "@/data/directory";
 import { DepartmentView } from "@/components/directory/department-view";
+import { NotSureAssistant } from "@/components/directory/not-sure-assistant";
 import { ThemeToggle } from "@/components/directory/theme-toggle";
+import { deptTheme } from "@/data/dept-theme";
+import { DirectoryStoreProvider, useDirectoryStore } from "@/lib/directory-store";
+import { smartSearch } from "@/lib/smart-search";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +44,7 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: DirectoryPage,
+  component: DirectoryRoute,
 });
 
 const ICONS: Record<string, typeof LifeBuoy> = {
@@ -55,62 +59,44 @@ const ICONS: Record<string, typeof LifeBuoy> = {
   "legal-contracts": FileSignature,
 };
 
-function deptText(d: Department) {
-  return [
-    d.name,
-    d.short,
-    d.owner,
-    d.criticalRule?.title,
-    d.criticalRule?.body,
-    d.triggersIntro,
-    ...d.triggers,
-    ...d.outOfScope.flatMap((o) => [o.need, o.goTo]),
-    d.intake.title,
-    ...(d.intake.steps ?? []),
-    ...(d.intake.bullets ?? []),
-    ...d.contacts.flatMap((c) => [c.label, c.value]),
-    ...d.escalation.flatMap((e) => [e.level, e.who, e.when, e.cdr]),
-    ...d.placeholders,
-  ]
-    .filter(Boolean)
-    .join(" \n ")
-    .toLowerCase();
-}
-
-function unverifiedCount(d: Department) {
+function DirectoryRoute() {
   return (
-    d.placeholders.length +
-    d.contacts.filter((c) => hasPlaceholder(c.value)).length +
-    (hasPlaceholder(d.owner) ? 1 : 0)
+    <DirectoryStoreProvider>
+      <DirectoryPage />
+    </DirectoryStoreProvider>
   );
 }
 
 function DirectoryPage() {
+  const { departments, verificationOf, unverifiedItems } = useDirectoryStore();
   const [query, setQuery] = useState("");
-  const [activeId, setActiveId] = useState(DEPARTMENTS[0]!.id);
+  const [activeId, setActiveId] = useState(departments[0]!.id);
   const [placeholdersOnly, setPlaceholdersOnly] = useState(false);
+  const [pulseSection, setPulseSection] = useState<string | null>(null);
 
-  const q = query.trim().toLowerCase();
+  const q = query.trim();
+  const hits = useMemo(() => smartSearch(q, departments), [q, departments]);
 
-  const matches = useMemo(() => {
-    if (!q) return null;
-    return DEPARTMENTS.map((d) => {
-      const text = deptText(d);
-      const lines = [
-        ...d.triggers.map((t) => ({ kind: "Trigger", text: t })),
-        ...d.outOfScope.map((o) => ({ kind: "Out of scope", text: `${o.need} → ${o.goTo}` })),
-        ...d.contacts.map((c) => ({ kind: "Contact", text: `${c.label}: ${c.value}` })),
-        ...d.escalation.map((e) => ({ kind: e.level, text: `${e.who} — ${e.when}` })),
-        ...(d.intake.steps ?? []).map((s) => ({ kind: "Intake", text: s })),
-        ...(d.intake.bullets ?? []).map((s) => ({ kind: "Intake", text: s })),
-        ...d.placeholders.map((p) => ({ kind: "Placeholder", text: p })),
-      ].filter((l) => l.text.toLowerCase().includes(q));
-      return { dept: d, hit: text.includes(q), lines };
-    }).filter((m) => m.hit);
-  }, [q]);
+  const goTo = useCallback((deptId: string, section?: string) => {
+    setActiveId(deptId);
+    setQuery("");
+    setPulseSection(section ?? null);
+    requestAnimationFrame(() => {
+      const el = section ? document.getElementById(section) : null;
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      else window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    if (section) window.setTimeout(() => setPulseSection(null), 2600);
+  }, []);
 
-  const active = DEPARTMENTS.find((d) => d.id === activeId)!;
-  const totalUnverified = DEPARTMENTS.reduce((n, d) => n + unverifiedCount(d), 0);
+  const active = departments.find((d) => d.id === activeId)!;
+  const totalUnverified = departments.reduce((n, d) => n + unverifiedItems(d).length, 0);
+
+  const grouped = useMemo(() => {
+    const map = new Map<Department, typeof hits>();
+    for (const h of hits) map.set(h.dept, [...(map.get(h.dept) ?? []), h]);
+    return [...map.entries()];
+  }, [hits]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -135,7 +121,10 @@ function DirectoryPage() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search departments, triggers, contacts, escalation tiers…"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && hits[0]) goTo(hits[0].dept.id, hits[0].section);
+              }}
+              placeholder="Ask in plain English — “customer needs a SOC 2 report”…"
               className="pl-9"
               aria-label="Search the directory"
             />
@@ -166,30 +155,35 @@ function DirectoryPage() {
             Departments
           </p>
           <ul className="space-y-1">
-            {DEPARTMENTS.map((d) => {
+            {departments.map((d) => {
               const Icon = ICONS[d.id]!;
               const isActive = d.id === activeId && !q;
-              const count = unverifiedCount(d);
+              const count = unverifiedItems(d).length;
+              const verified = verificationOf(d);
+              const theme = deptTheme(d.id);
               return (
                 <li key={d.id}>
                   <button
-                    onClick={() => {
-                      setActiveId(d.id);
-                      setQuery("");
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
+                    onClick={() => goTo(d.id)}
                     className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                       isActive
                         ? "bg-secondary font-medium text-secondary-foreground"
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     }`}
                   >
+                    <span className={`h-5 w-1 shrink-0 rounded-full ${theme.dot}`} />
                     <Icon className="size-4 shrink-0" />
                     <span className="flex-1 truncate">{d.short}</span>
                     {d.internalOnly ? (
                       <Badge variant="destructive" className="text-[9px]">
                         Internal
                       </Badge>
+                    ) : null}
+                    {verified ? (
+                      <span
+                        title={`Verified ${verified.date}`}
+                        className="size-2 shrink-0 rounded-full bg-success"
+                      />
                     ) : count ? (
                       <span className="rounded-full bg-warning-soft px-1.5 text-[10px] text-warning-foreground">
                         {count}
@@ -204,13 +198,10 @@ function DirectoryPage() {
 
         <main className="min-w-0 flex-1 py-6">
           <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-            {DEPARTMENTS.map((d) => (
+            {departments.map((d) => (
               <button
                 key={d.id}
-                onClick={() => {
-                  setActiveId(d.id);
-                  setQuery("");
-                }}
+                onClick={() => goTo(d.id)}
                 className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs ${
                   d.id === activeId && !q
                     ? "border-primary bg-primary text-primary-foreground"
@@ -225,48 +216,59 @@ function DirectoryPage() {
           {q ? (
             <div className="space-y-6 pb-16">
               <p className="text-sm text-muted-foreground">
-                {matches?.length ?? 0} department{matches?.length === 1 ? "" : "s"} match “{query}”
+                {grouped.length} department{grouped.length === 1 ? "" : "s"} match “{query}” — click a
+                result to jump straight to the answer.
               </p>
-              {matches?.map(({ dept, lines }) => {
+              {grouped.map(([dept, lines]) => {
                 const Icon = ICONS[dept.id]!;
+                const theme = deptTheme(dept.id);
                 return (
-                  <div key={dept.id} className="rounded-xl border border-border bg-surface p-5">
+                  <div
+                    key={dept.id}
+                    className={`rounded-xl border ${theme.ring} ${theme.soft} p-5`}
+                  >
                     <button
-                      onClick={() => {
-                        setActiveId(dept.id);
-                        setQuery("");
-                      }}
+                      onClick={() => goTo(dept.id)}
                       className="flex items-center gap-2 text-left text-base font-semibold hover:underline"
                     >
-                      <Icon className="size-4 text-primary" />
+                      <Icon className="size-4" />
                       {dept.name}
                     </button>
                     <ul className="mt-3 space-y-2">
-                      {lines.slice(0, 8).map((l, i) => (
-                        <li key={`${l.kind}-${i}`} className="flex flex-wrap items-start gap-2 text-sm">
-                          <Badge variant="outline" className="text-[10px] uppercase">
-                            {l.kind}
-                          </Badge>
-                          <span className="flex-1 text-foreground/85">{l.text}</span>
+                      {lines.slice(0, 6).map((l, i) => (
+                        <li key={`${l.kind}-${i}`}>
+                          <button
+                            onClick={() => goTo(dept.id, l.section)}
+                            className="flex w-full flex-wrap items-start gap-2 rounded-lg p-1.5 text-left text-sm hover:bg-accent"
+                          >
+                            <Badge variant="outline" className="text-[10px] uppercase">
+                              {l.kind}
+                            </Badge>
+                            <span className="flex-1 text-foreground/85">{l.text}</span>
+                          </button>
                         </li>
                       ))}
-                      {lines.length === 0 ? (
-                        <li className="text-sm text-muted-foreground">
-                          Matched in department overview.
-                        </li>
-                      ) : null}
                     </ul>
                   </div>
                 );
               })}
-              {matches?.length === 0 ? (
+              {grouped.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
                   No results. Try “SOW”, “P1”, “DPA”, or “log retention”.
                 </p>
               ) : null}
+              <NotSureAssistant departments={departments} onGoTo={goTo} />
             </div>
           ) : (
-            <DepartmentView dept={active} placeholdersOnly={placeholdersOnly} />
+            <div className="space-y-10 pb-4">
+              <DepartmentView
+                dept={active}
+                placeholdersOnly={placeholdersOnly}
+                pulseSection={pulseSection}
+              />
+              <NotSureAssistant departments={departments} onGoTo={goTo} />
+              <div className="h-10" />
+            </div>
           )}
         </main>
       </div>
