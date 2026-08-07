@@ -1,0 +1,138 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { DEPARTMENTS, hasPlaceholder, type Department } from "@/data/directory";
+
+export type DeptOverride = {
+  owner?: string;
+  contacts?: Record<string, string>;
+  /** extra contact rows added by reviewers (slack channels, intake urls, SLAs) */
+  extraContacts?: { label: string; value: string }[];
+};
+
+export type VerificationRecord = { date: string; by: string };
+
+type StoreState = {
+  overrides: Record<string, DeptOverride>;
+  verified: Record<string, VerificationRecord>;
+  reviewer: string;
+};
+
+const EMPTY: StoreState = { overrides: {}, verified: {}, reviewer: "" };
+const KEY = "csm-directory-edits-v1";
+
+type StoreValue = {
+  state: StoreState;
+  reviewer: string;
+  setReviewer: (name: string) => void;
+  departments: Department[];
+  getDepartment: (id: string) => Department;
+  saveDepartment: (id: string, override: DeptOverride, reviewer: string) => void;
+  resetDepartment: (id: string) => void;
+  verificationOf: (d: Department) => VerificationRecord | null;
+  unverifiedItems: (d: Department) => string[];
+};
+
+const Ctx = createContext<StoreValue | null>(null);
+
+function applyOverride(dept: Department, ov?: DeptOverride): Department {
+  if (!ov) return dept;
+  return {
+    ...dept,
+    owner: ov.owner?.trim() ? ov.owner : dept.owner,
+    contacts: [
+      ...dept.contacts.map((c) => {
+        const next = ov.contacts?.[c.label];
+        return next && next.trim() ? { ...c, value: next } : c;
+      }),
+      ...(ov.extraContacts ?? []).filter((c) => c.label.trim() && c.value.trim()),
+    ],
+  };
+}
+
+export function unverifiedItemsFor(dept: Department): string[] {
+  return [
+    ...dept.placeholders.filter(hasPlaceholder),
+    ...dept.contacts.filter((c) => hasPlaceholder(c.value)).map((c) => `${c.label}: ${c.value}`),
+    ...(hasPlaceholder(dept.owner) ? [`Entry Owner: ${dept.owner}`] : []),
+  ];
+}
+
+export function DirectoryStoreProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<StoreState>(EMPTY);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(KEY);
+      if (raw) setState({ ...EMPTY, ...(JSON.parse(raw) as StoreState) });
+    } catch {
+      /* ignore corrupted storage */
+    }
+  }, []);
+
+  const persist = useCallback((next: StoreState) => {
+    setState(next);
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify(next));
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
+
+  const value = useMemo<StoreValue>(() => {
+    const departments = DEPARTMENTS.map((d) => applyOverride(d, state.overrides[d.id]));
+    const byId = new Map(departments.map((d) => [d.id, d]));
+
+    return {
+      state,
+      reviewer: state.reviewer,
+      setReviewer: (name) => persist({ ...state, reviewer: name }),
+      departments,
+      getDepartment: (id) => byId.get(id) ?? departments[0]!,
+      saveDepartment: (id, override, reviewer) => {
+        const merged: DeptOverride = {
+          ...state.overrides[id],
+          ...override,
+          contacts: { ...state.overrides[id]?.contacts, ...override.contacts },
+        };
+        const base = DEPARTMENTS.find((d) => d.id === id)!;
+        const resolved = applyOverride(base, merged);
+        const stillUnverified = unverifiedItemsFor(resolved).length > 0;
+        const verified = { ...state.verified };
+        if (stillUnverified) {
+          delete verified[id];
+        } else {
+          verified[id] = {
+            date: new Date().toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            }),
+            by: reviewer.trim() || "Reviewer",
+          };
+        }
+        persist({
+          ...state,
+          reviewer: reviewer.trim() || state.reviewer,
+          overrides: { ...state.overrides, [id]: merged },
+          verified,
+        });
+      },
+      resetDepartment: (id) => {
+        const overrides = { ...state.overrides };
+        const verified = { ...state.verified };
+        delete overrides[id];
+        delete verified[id];
+        persist({ ...state, overrides, verified });
+      },
+      verificationOf: (d) => state.verified[d.id] ?? null,
+      unverifiedItems: unverifiedItemsFor,
+    };
+  }, [state, persist]);
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export function useDirectoryStore() {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error("useDirectoryStore must be used inside DirectoryStoreProvider");
+  return ctx;
+}
