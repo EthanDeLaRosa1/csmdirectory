@@ -175,3 +175,16 @@
     -webkit-font-smoothing: antialiased;
   }
 }
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-primary) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in oklch, var(--color-primary) 0%, transparent);
+  }
+}
+
+@utility animate-pulse-glow {
+  animation: pulse-glow 1.3s ease-in-out 2;
+}
