@@ -1,7 +1,23 @@
-import { AlertTriangle, ArrowRight, ChevronRight, CircleDot, Mail, ShieldAlert } from "lucide-react";
+import { useState } from "react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  BadgeCheck,
+  CircleDot,
+  Clock,
+  Mail,
+  Pencil,
+  ShieldAlert,
+} from "lucide-react";
 import type { Department } from "@/data/directory";
 import { CASE_STATUSES, SLA_MATRIX, hasPlaceholder } from "@/data/directory";
+import { deptTheme } from "@/data/dept-theme";
+import { useDirectoryStore } from "@/lib/directory-store";
+import { CopyButton, isCopyable } from "@/components/directory/copy-button";
+import { EditDepartmentDialog } from "@/components/directory/edit-department-dialog";
+import { TriggerAccordion } from "@/components/directory/trigger-accordion";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -27,23 +43,35 @@ export function MaybePlaceholder({ text }: { text: string }) {
   return <span>{text}</span>;
 }
 
-function SectionTitle({ children, hint }: { children: React.ReactNode; hint?: string }) {
+function SectionTitle({
+  children,
+  hint,
+  action,
+}: {
+  children: React.ReactNode;
+  hint?: string;
+  action?: React.ReactNode;
+}) {
   return (
-    <div className="mb-3 flex items-baseline gap-3">
+    <div className="mb-3 flex flex-wrap items-baseline gap-3">
       <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
         {children}
       </h2>
       {hint ? <span className="text-xs text-muted-foreground/70">{hint}</span> : null}
+      {action ? <span className="ml-auto">{action}</span> : null}
     </div>
   );
 }
 
 function EscalationStepper({ dept }: { dept: Department }) {
+  const theme = deptTheme(dept.id);
   return (
     <ol className="relative space-y-4 border-l border-border pl-6">
       {dept.escalation.map((step, i) => (
         <li key={step.level} className="relative">
-          <span className="absolute -left-[31px] flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground ring-4 ring-background">
+          <span
+            className={`absolute -left-[31px] flex size-5 items-center justify-center rounded-full ${theme.dot} text-[10px] font-bold text-white ring-4 ring-background`}
+          >
             {i + 1}
           </span>
           <Card className="border-border/70 bg-surface">
@@ -81,20 +109,40 @@ function EscalationStepper({ dept }: { dept: Department }) {
 export function DepartmentView({
   dept,
   placeholdersOnly,
+  pulseSection,
 }: {
   dept: Department;
   placeholdersOnly: boolean;
+  pulseSection?: string | null;
 }) {
-  const unverified = [
-    ...dept.placeholders,
-    ...dept.contacts.filter((c) => hasPlaceholder(c.value)).map((c) => `${c.label}: ${c.value}`),
-    ...(hasPlaceholder(dept.owner) ? [`Entry Owner: ${dept.owner}`] : []),
-  ];
+  const { verificationOf, unverifiedItems } = useDirectoryStore();
+  const [editOpen, setEditOpen] = useState(false);
+  const [focusLabel, setFocusLabel] = useState<string | null>(null);
+  const unverified = unverifiedItems(dept);
+  const verification = verificationOf(dept);
+  const theme = deptTheme(dept.id);
+
+  const openEdit = (label?: string) => {
+    setFocusLabel(label ?? null);
+    setEditOpen(true);
+  };
+
+  const pulse = (id: string) =>
+    pulseSection === id ? "rounded-xl ring-2 ring-primary/60 animate-pulse-glow" : "";
+
+  const header = (
+    <Header
+      dept={dept}
+      unverifiedCount={unverified.length}
+      verifiedOn={verification}
+      onEdit={() => openEdit()}
+    />
+  );
 
   if (placeholdersOnly) {
     return (
       <div className="space-y-6">
-        <Header dept={dept} unverifiedCount={unverified.length} />
+        {header}
         <Card className="border-warning/40 bg-warning-soft/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -104,7 +152,11 @@ export function DepartmentView({
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {unverified.length ? (
-              unverified.map((p) => <PlaceholderPill key={p}>{p}</PlaceholderPill>)
+              unverified.map((p) => (
+                <button key={p} onClick={() => openEdit(p.split(":")[0])}>
+                  <PlaceholderPill>{p}</PlaceholderPill>
+                </button>
+              ))
             ) : (
               <p className="text-sm text-muted-foreground">
                 No unverified placeholders in this department.
@@ -112,13 +164,19 @@ export function DepartmentView({
             )}
           </CardContent>
         </Card>
+        <EditDepartmentDialog
+          dept={dept}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          focusLabel={focusLabel}
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-10">
-      <Header dept={dept} unverifiedCount={unverified.length} />
+      {header}
 
       {dept.criticalRule ? (
         <div
@@ -143,66 +201,57 @@ export function DepartmentView({
         </div>
       ) : null}
 
-      <section>
-        <SectionTitle hint="Side-by-side routing decision">When to use vs. where to go instead</SectionTitle>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="border-success/40">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-success">
-                <CircleDot className="size-4" /> Trigger scenarios
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {dept.triggersIntro ? (
-                <p className="mb-3 text-sm text-muted-foreground">{dept.triggersIntro}</p>
-              ) : null}
-              <ul className="space-y-2 text-sm">
-                {dept.triggers.map((t) => (
-                  <li key={t} className="flex gap-2">
-                    <ChevronRight className="mt-0.5 size-4 shrink-0 text-success" />
-                    <span>{t}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card className="border-destructive/40">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-destructive">
-                <AlertTriangle className="size-4" /> Out of scope — route elsewhere
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Customer need</TableHead>
-                    <TableHead>Go here instead</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dept.outOfScope.map((row) => (
-                    <TableRow key={row.need}>
-                      <TableCell className="align-top text-sm">{row.need}</TableCell>
-                      <TableCell className="align-top text-sm font-medium">
-                        <span className="inline-flex items-center gap-1.5">
-                          <ArrowRight className="size-3.5 text-muted-foreground" />
-                          {row.goTo}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
+      <section id="sec-triggers" className={`scroll-mt-28 ${pulse("sec-triggers")}`}>
+        <SectionTitle hint="Expand a scenario for edge cases and examples">
+          When to use this team
+        </SectionTitle>
+        <Card className="border-success/40">
+          <CardContent className="pt-5">
+            {dept.triggersIntro ? (
+              <p className="mb-2 text-sm text-muted-foreground">{dept.triggersIntro}</p>
+            ) : null}
+            <TriggerAccordion dept={dept} />
+          </CardContent>
+        </Card>
       </section>
 
-      <section>
-        <SectionTitle>Intake & contact</SectionTitle>
-        <div className="grid gap-4 lg:grid-cols-2">
+      <section id="sec-scope" className={`scroll-mt-28 ${pulse("sec-scope")}`}>
+        <SectionTitle hint="Route these elsewhere">Out of scope</SectionTitle>
+        <Card className="border-destructive/40">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-destructive">
+              <AlertTriangle className="size-4" /> Go here instead
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Customer need</TableHead>
+                  <TableHead>Go here instead</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {dept.outOfScope.map((row) => (
+                  <TableRow key={row.need}>
+                    <TableCell className="align-top text-sm">{row.need}</TableCell>
+                    <TableCell className="align-top text-sm font-medium">
+                      <span className="inline-flex items-center gap-1.5">
+                        <ArrowRight className="size-3.5 text-muted-foreground" />
+                        {row.goTo}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div id="sec-intake" className={`scroll-mt-28 ${pulse("sec-intake")}`}>
+          <SectionTitle>Intake</SectionTitle>
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">{dept.intake.title}</CardTitle>
@@ -212,7 +261,7 @@ export function DepartmentView({
                 <ul className="space-y-2 text-sm">
                   {dept.intake.bullets.map((b) => (
                     <li key={b} className="flex gap-2">
-                      <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
+                      <span className={`mt-2 size-1.5 shrink-0 rounded-full ${theme.dot}`} />
                       <span>{b}</span>
                     </li>
                   ))}
@@ -232,7 +281,18 @@ export function DepartmentView({
               ) : null}
             </CardContent>
           </Card>
+        </div>
 
+        <div id="sec-contacts" className={`scroll-mt-28 ${pulse("sec-contacts")}`}>
+          <SectionTitle
+            action={
+              <Button size="sm" variant="outline" onClick={() => openEdit()}>
+                <Pencil className="size-3.5" /> Edit
+              </Button>
+            }
+          >
+            Contact
+          </SectionTitle>
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -248,10 +308,23 @@ export function DepartmentView({
             <CardContent>
               <dl className="divide-y divide-border text-sm">
                 {dept.contacts.map((c) => (
-                  <div key={c.label} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                  <div
+                    key={c.label}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+                  >
                     <dt className="text-muted-foreground">{c.label}</dt>
-                    <dd className="text-right font-medium">
+                    <dd className="flex items-center gap-2 text-right font-medium">
                       <MaybePlaceholder text={c.value} />
+                      {isCopyable(c.value) ? (
+                        <CopyButton value={c.value} label={c.label} />
+                      ) : null}
+                      <button
+                        onClick={() => openEdit(c.label)}
+                        aria-label={`Edit ${c.label}`}
+                        className="inline-flex size-6 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Pencil className="size-3" />
+                      </button>
                     </dd>
                   </div>
                 ))}
@@ -263,7 +336,7 @@ export function DepartmentView({
 
       {dept.id === "customer-support" ? (
         <>
-          <section>
+          <section id="sec-sla" className={`scroll-mt-28 ${pulse("sec-sla")}`}>
             <SectionTitle hint="Response targets by contract tier">Priority & SLA matrix</SectionTitle>
             <Card className="overflow-hidden">
               <Table>
@@ -324,16 +397,28 @@ export function DepartmentView({
         </>
       ) : null}
 
-      <section>
+      <section id="sec-escalation" className={`scroll-mt-28 ${pulse("sec-escalation")}`}>
         <SectionTitle hint="Level 1 → Level 2 → Level 3">Escalation path</SectionTitle>
         <EscalationStepper dept={dept} />
       </section>
 
       <section>
-        <SectionTitle>Verification tracker</SectionTitle>
+        <SectionTitle
+          action={
+            <Button size="sm" variant="outline" onClick={() => openEdit()}>
+              <Pencil className="size-3.5" /> Update placeholders
+            </Button>
+          }
+        >
+          Verification tracker
+        </SectionTitle>
         <div className="flex flex-wrap gap-2">
           {unverified.length ? (
-            unverified.map((p) => <PlaceholderPill key={p}>{p}</PlaceholderPill>)
+            unverified.map((p) => (
+              <button key={p} onClick={() => openEdit(p.split(":")[0])}>
+                <PlaceholderPill>{p}</PlaceholderPill>
+              </button>
+            ))
           ) : (
             <p className="text-sm text-muted-foreground">All entries verified.</p>
           )}
@@ -344,27 +429,54 @@ export function DepartmentView({
       <p className="pb-10 text-xs text-muted-foreground">
         Last updated {dept.updated} · Entry owner <MaybePlaceholder text={dept.owner} />
       </p>
+
+      <EditDepartmentDialog
+        dept={dept}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        focusLabel={focusLabel}
+      />
     </div>
   );
 }
 
-function Header({ dept, unverifiedCount }: { dept: Department; unverifiedCount: number }) {
+function Header({
+  dept,
+  unverifiedCount,
+  verifiedOn,
+  onEdit,
+}: {
+  dept: Department;
+  unverifiedCount: number;
+  verifiedOn: { date: string; by: string } | null;
+  onEdit: () => void;
+}) {
+  const theme = deptTheme(dept.id);
   return (
     <div>
+      <div className={`mb-4 h-1.5 w-full rounded-full bg-gradient-to-r ${theme.accent}`} />
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline" className="font-mono text-[10px]">
           {String(dept.num).padStart(2, "0")}
         </Badge>
+        <Badge className={`${theme.badge} text-[10px]`}>{theme.tag}</Badge>
         {dept.internalOnly ? (
           <Badge variant="destructive" className="text-[10px] uppercase tracking-wide">
             Internal only
           </Badge>
         ) : null}
-        {unverifiedCount > 0 ? (
-          <Badge className="bg-warning-soft text-warning-foreground text-[10px]">
-            {unverifiedCount} unverified
-          </Badge>
+        {verifiedOn ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-0.5 text-[11px] font-medium text-success ring-1 ring-success/30">
+            <BadgeCheck className="size-3" /> Verified {verifiedOn.date} · {verifiedOn.by}
+          </span>
+        ) : unverifiedCount > 0 ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2.5 py-0.5 text-[11px] font-medium text-warning-foreground ring-1 ring-warning/40">
+            <Clock className="size-3" /> {unverifiedCount} pending verification
+          </span>
         ) : null}
+        <Button size="sm" variant="outline" className="ml-auto" onClick={onEdit}>
+          <Pencil className="size-3.5" /> Edit details
+        </Button>
       </div>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">{dept.name}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
