@@ -83,7 +83,9 @@ function DirectoryPage() {
 
   const goTo = useCallback((deptId: string, section?: string) => {
     setActiveId(deptId);
+    setView("directory");
     setQuery("");
+
     setPulseSection(section ?? null);
     requestAnimationFrame(() => {
       const el = section ? document.getElementById(section) : null;
