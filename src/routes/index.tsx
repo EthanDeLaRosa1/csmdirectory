@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import type { Department } from "@/data/directory";
 import { DepartmentView } from "@/components/directory/department-view";
+import { FeedbackBoard } from "@/components/directory/feedback-board";
+import { LinkBank } from "@/components/directory/link-bank";
+
 import { NotSureAssistant } from "@/components/directory/not-sure-assistant";
 import { ThemeToggle } from "@/components/directory/theme-toggle";
 import { deptTheme } from "@/data/dept-theme";
