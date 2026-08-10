@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import type { Department } from "@/data/directory";
 import { DepartmentView } from "@/components/directory/department-view";
+import { FeedbackBoard } from "@/components/directory/feedback-board";
+import { LinkBank } from "@/components/directory/link-bank";
+
 import { NotSureAssistant } from "@/components/directory/not-sure-assistant";
 import { ThemeToggle } from "@/components/directory/theme-toggle";
 import { deptTheme } from "@/data/dept-theme";
@@ -67,19 +70,25 @@ function DirectoryRoute() {
   );
 }
 
+type ViewId = "directory" | "links" | "feedback";
+
 function DirectoryPage() {
   const { departments, verificationOf, unverifiedItems } = useDirectoryStore();
   const [query, setQuery] = useState("");
   const [activeId, setActiveId] = useState(departments[0]!.id);
+  const [view, setView] = useState<ViewId>("directory");
   const [placeholdersOnly, setPlaceholdersOnly] = useState(false);
   const [pulseSection, setPulseSection] = useState<string | null>(null);
+
 
   const q = query.trim();
   const hits = useMemo(() => smartSearch(q, departments), [q, departments]);
 
   const goTo = useCallback((deptId: string, section?: string) => {
     setActiveId(deptId);
+    setView("directory");
     setQuery("");
+
     setPulseSection(section ?? null);
     requestAnimationFrame(() => {
       const el = section ? document.getElementById(section) : null;
@@ -197,21 +206,50 @@ function DirectoryPage() {
         </nav>
 
         <main className="min-w-0 flex-1 py-6">
-          <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-            {departments.map((d) => (
+          <div className="mb-5 flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1">
+            {(
+              [
+                ["directory", "Department Directory"],
+                ["links", "Centralized Link Bank"],
+                ["feedback", "CSM Feedback & Wishlist"],
+              ] as [ViewId, string][]
+            ).map(([id, label]) => (
               <button
-                key={d.id}
-                onClick={() => goTo(d.id)}
-                className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs ${
-                  d.id === activeId && !q
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border text-muted-foreground"
+                key={id}
+                onClick={() => {
+                  setView(id);
+                  setQuery("");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                  view === id && !q
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 }`}
               >
-                {d.short}
+                {label}
               </button>
             ))}
           </div>
+
+          {view === "directory" && !q ? (
+            <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+              {departments.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => goTo(d.id)}
+                  className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs ${
+                    d.id === activeId
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {d.short}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
 
           {q ? (
             <div className="space-y-6 pb-16">
@@ -259,6 +297,10 @@ function DirectoryPage() {
               ) : null}
               <NotSureAssistant departments={departments} onGoTo={goTo} />
             </div>
+          ) : view === "links" ? (
+            <LinkBank />
+          ) : view === "feedback" ? (
+            <FeedbackBoard />
           ) : (
             <div className="space-y-10 pb-4">
               <DepartmentView
@@ -270,6 +312,7 @@ function DirectoryPage() {
               <div className="h-10" />
             </div>
           )}
+
         </main>
       </div>
     </div>
