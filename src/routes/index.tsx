@@ -67,12 +67,16 @@ function DirectoryRoute() {
   );
 }
 
+type ViewId = "directory" | "links" | "feedback";
+
 function DirectoryPage() {
   const { departments, verificationOf, unverifiedItems } = useDirectoryStore();
   const [query, setQuery] = useState("");
   const [activeId, setActiveId] = useState(departments[0]!.id);
+  const [view, setView] = useState<ViewId>("directory");
   const [placeholdersOnly, setPlaceholdersOnly] = useState(false);
   const [pulseSection, setPulseSection] = useState<string | null>(null);
+
 
   const q = query.trim();
   const hits = useMemo(() => smartSearch(q, departments), [q, departments]);
