@@ -203,21 +203,50 @@ function DirectoryPage() {
         </nav>
 
         <main className="min-w-0 flex-1 py-6">
-          <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-            {departments.map((d) => (
+          <div className="mb-5 flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1">
+            {(
+              [
+                ["directory", "Department Directory"],
+                ["links", "Centralized Link Bank"],
+                ["feedback", "CSM Feedback & Wishlist"],
+              ] as [ViewId, string][]
+            ).map(([id, label]) => (
               <button
-                key={d.id}
-                onClick={() => goTo(d.id)}
-                className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs ${
-                  d.id === activeId && !q
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border text-muted-foreground"
+                key={id}
+                onClick={() => {
+                  setView(id);
+                  setQuery("");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                  view === id && !q
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 }`}
               >
-                {d.short}
+                {label}
               </button>
             ))}
           </div>
+
+          {view === "directory" && !q ? (
+            <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+              {departments.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => goTo(d.id)}
+                  className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs ${
+                    d.id === activeId
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {d.short}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
 
           {q ? (
             <div className="space-y-6 pb-16">
