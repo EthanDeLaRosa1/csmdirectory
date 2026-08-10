@@ -294,6 +294,10 @@ function DirectoryPage() {
               ) : null}
               <NotSureAssistant departments={departments} onGoTo={goTo} />
             </div>
+          ) : view === "links" ? (
+            <LinkBank />
+          ) : view === "feedback" ? (
+            <FeedbackBoard />
           ) : (
             <div className="space-y-10 pb-4">
               <DepartmentView
@@ -305,6 +309,7 @@ function DirectoryPage() {
               <div className="h-10" />
             </div>
           )}
+
         </main>
       </div>
     </div>
