@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   AlertTriangle,
-  ArrowRight,
   BadgeCheck,
   CircleDot,
   Clock,
@@ -16,6 +15,8 @@ import { useDirectoryStore } from "@/lib/directory-store";
 import { CopyButton, isCopyable } from "@/components/directory/copy-button";
 import { EditDepartmentDialog } from "@/components/directory/edit-department-dialog";
 import { TriggerAccordion } from "@/components/directory/trigger-accordion";
+import { QuickLinks } from "@/components/directory/quick-links";
+import { GoToPill } from "@/lib/route-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -110,10 +111,12 @@ export function DepartmentView({
   dept,
   placeholdersOnly,
   pulseSection,
+  onGoTo,
 }: {
   dept: Department;
   placeholdersOnly: boolean;
   pulseSection?: string | null;
+  onGoTo?: (deptId: string, section?: string) => void;
 }) {
   const { verificationOf, unverifiedItems } = useDirectoryStore();
   const [editOpen, setEditOpen] = useState(false);
@@ -236,10 +239,7 @@ export function DepartmentView({
                   <TableRow key={row.need}>
                     <TableCell className="align-top text-sm">{row.need}</TableCell>
                     <TableCell className="align-top text-sm font-medium">
-                      <span className="inline-flex items-center gap-1.5">
-                        <ArrowRight className="size-3.5 text-muted-foreground" />
-                        {row.goTo}
-                      </span>
+                      <GoToPill text={row.goTo} onGoTo={onGoTo} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -281,6 +281,9 @@ export function DepartmentView({
               ) : null}
             </CardContent>
           </Card>
+          <div id="sec-links" className={`mt-4 scroll-mt-28 ${pulse("sec-links")}`}>
+            <QuickLinks dept={dept} />
+          </div>
         </div>
 
         <div id="sec-contacts" className={`scroll-mt-28 ${pulse("sec-contacts")}`}>

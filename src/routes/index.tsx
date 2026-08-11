@@ -17,6 +17,7 @@ import type { Department } from "@/data/directory";
 import { DepartmentView } from "@/components/directory/department-view";
 import { FeedbackBoard } from "@/components/directory/feedback-board";
 import { LinkBank } from "@/components/directory/link-bank";
+import { GlossaryFinder } from "@/components/directory/glossary-finder";
 
 import { NotSureAssistant } from "@/components/directory/not-sure-assistant";
 import { ThemeToggle } from "@/components/directory/theme-toggle";
@@ -70,7 +71,7 @@ function DirectoryRoute() {
   );
 }
 
-type ViewId = "directory" | "links" | "feedback";
+type ViewId = "directory" | "links" | "glossary" | "feedback";
 
 function DirectoryPage() {
   const { departments, verificationOf, unverifiedItems } = useDirectoryStore();
@@ -120,7 +121,7 @@ function DirectoryPage() {
                 CSM Internal Escalation &amp; Resource Directory
               </h1>
               <p className="text-[11px] text-muted-foreground">
-                Owners: [Your Name] &amp; Atravian · Target date: August 15, 2026
+                Owners: Ethan DeLaRosa &amp; Atravian · Target date: August 15, 2026
               </p>
             </div>
           </div>
@@ -211,6 +212,7 @@ function DirectoryPage() {
               [
                 ["directory", "Department Directory"],
                 ["links", "Centralized Link Bank"],
+                ["glossary", "📚 Glossary & Acronym Finder"],
                 ["feedback", "CSM Feedback & Wishlist"],
               ] as [ViewId, string][]
             ).map(([id, label]) => (
@@ -299,6 +301,8 @@ function DirectoryPage() {
             </div>
           ) : view === "links" ? (
             <LinkBank />
+          ) : view === "glossary" ? (
+            <GlossaryFinder />
           ) : view === "feedback" ? (
             <FeedbackBoard />
           ) : (
@@ -307,6 +311,7 @@ function DirectoryPage() {
                 dept={active}
                 placeholdersOnly={placeholdersOnly}
                 pulseSection={pulseSection}
+                onGoTo={goTo}
               />
               <NotSureAssistant departments={departments} onGoTo={goTo} />
               <div className="h-10" />
