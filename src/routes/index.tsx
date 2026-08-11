@@ -121,7 +121,7 @@ function DirectoryPage() {
                 CSM Internal Escalation &amp; Resource Directory
               </h1>
               <p className="text-[11px] text-muted-foreground">
-                Owners: [Your Name] &amp; Atravian · Target date: August 15, 2026
+                Owners: Ethan DeLaRosa &amp; Atravian · Target date: August 15, 2026
               </p>
             </div>
           </div>
