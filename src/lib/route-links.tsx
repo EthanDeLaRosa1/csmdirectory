@@ -31,7 +31,7 @@ export function GoToPill({
   onGoTo,
 }: {
   text: string;
-  onGoTo?: (deptId: string, section?: string) => void;
+  onGoTo?: ((deptId: string, section?: string) => void) | undefined;
 }) {
   const url = text.match(URL_RE)?.[1];
   if (url) {
