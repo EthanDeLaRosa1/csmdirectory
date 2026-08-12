@@ -5,13 +5,16 @@ import {
   CircleDot,
   Clock,
   Mail,
+  Lock,
   Pencil,
   ShieldAlert,
+  XCircle,
 } from "lucide-react";
 import type { Department } from "@/data/directory";
 import { CASE_STATUSES, SLA_MATRIX, hasPlaceholder } from "@/data/directory";
 import { deptTheme } from "@/data/dept-theme";
 import { useDirectoryStore } from "@/lib/directory-store";
+import { useAdmin } from "@/lib/admin-store";
 import { CopyButton, isCopyable } from "@/components/directory/copy-button";
 import { EditDepartmentDialog } from "@/components/directory/edit-department-dialog";
 import { TriggerAccordion } from "@/components/directory/trigger-accordion";
@@ -119,16 +122,18 @@ export function DepartmentView({
   onGoTo?: (deptId: string, section?: string) => void;
 }) {
   const { verificationOf, unverifiedItems } = useDirectoryStore();
+  const { requireAdmin, isAdmin } = useAdmin();
   const [editOpen, setEditOpen] = useState(false);
   const [focusLabel, setFocusLabel] = useState<string | null>(null);
   const unverified = unverifiedItems(dept);
   const verification = verificationOf(dept);
   const theme = deptTheme(dept.id);
 
-  const openEdit = (label?: string) => {
-    setFocusLabel(label ?? null);
-    setEditOpen(true);
-  };
+  const openEdit = (label?: string) =>
+    requireAdmin(() => {
+      setFocusLabel(label ?? null);
+      setEditOpen(true);
+    });
 
   const pulse = (id: string) =>
     pulseSection === id ? "rounded-xl ring-2 ring-primary/60 animate-pulse-glow" : "";
@@ -237,7 +242,15 @@ export function DepartmentView({
               <TableBody>
                 {dept.outOfScope.map((row) => (
                   <TableRow key={row.need}>
-                    <TableCell className="align-top text-sm">{row.need}</TableCell>
+                    <TableCell className="align-top text-sm">
+                      <span className="flex items-start gap-2.5">
+                        <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-danger-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive ring-1 ring-destructive/25">
+                          <XCircle className="size-3" />
+                          Not us
+                        </span>
+                        <span>{row.need}</span>
+                      </span>
+                    </TableCell>
                     <TableCell className="align-top text-sm font-medium">
                       <GoToPill text={row.goTo} onGoTo={onGoTo} />
                     </TableCell>
@@ -290,7 +303,7 @@ export function DepartmentView({
           <SectionTitle
             action={
               <Button size="sm" variant="outline" onClick={() => openEdit()}>
-                <Pencil className="size-3.5" /> Edit
+                {isAdmin ? <Pencil className="size-3.5" /> : <Lock className="size-3.5" />} Edit
               </Button>
             }
           >
@@ -409,7 +422,8 @@ export function DepartmentView({
         <SectionTitle
           action={
             <Button size="sm" variant="outline" onClick={() => openEdit()}>
-              <Pencil className="size-3.5" /> Update placeholders
+              {isAdmin ? <Pencil className="size-3.5" /> : <Lock className="size-3.5" />} Update
+              placeholders
             </Button>
           }
         >
