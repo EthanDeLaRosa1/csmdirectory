@@ -122,7 +122,7 @@ export function DepartmentView({
   onGoTo?: (deptId: string, section?: string) => void;
 }) {
   const { verificationOf, unverifiedItems } = useDirectoryStore();
-  const { requireAdmin } = useAdmin();
+  const { requireAdmin, isAdmin } = useAdmin();
   const [editOpen, setEditOpen] = useState(false);
   const [focusLabel, setFocusLabel] = useState<string | null>(null);
   const unverified = unverifiedItems(dept);
@@ -303,7 +303,7 @@ export function DepartmentView({
           <SectionTitle
             action={
               <Button size="sm" variant="outline" onClick={() => openEdit()}>
-                <Pencil className="size-3.5" /> Edit
+                {isAdmin ? <Pencil className="size-3.5" /> : <Lock className="size-3.5" />} Edit
               </Button>
             }
           >
@@ -422,7 +422,8 @@ export function DepartmentView({
         <SectionTitle
           action={
             <Button size="sm" variant="outline" onClick={() => openEdit()}>
-              <Pencil className="size-3.5" /> Update placeholders
+              {isAdmin ? <Pencil className="size-3.5" /> : <Lock className="size-3.5" />} Update
+              placeholders
             </Button>
           }
         >
