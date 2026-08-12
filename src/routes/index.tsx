@@ -7,6 +7,10 @@ import {
   FileSignature,
   LifeBuoy,
   Lightbulb,
+  BookOpen,
+  Link2,
+  MessageSquarePlus,
+  LayoutGrid,
   Search,
   Server,
   ShieldCheck,
@@ -19,6 +23,8 @@ import { FeedbackBoard } from "@/components/directory/feedback-board";
 import { LinkBank } from "@/components/directory/link-bank";
 import { GlossaryFinder } from "@/components/directory/glossary-finder";
 
+import { AdminPinDialog, AdminToggle } from "@/components/directory/admin-controls";
+import { AdminProvider } from "@/lib/admin-store";
 import { NotSureAssistant } from "@/components/directory/not-sure-assistant";
 import { ThemeToggle } from "@/components/directory/theme-toggle";
 import { deptTheme } from "@/data/dept-theme";
@@ -65,9 +71,12 @@ const ICONS: Record<string, typeof LifeBuoy> = {
 
 function DirectoryRoute() {
   return (
-    <DirectoryStoreProvider>
-      <DirectoryPage />
-    </DirectoryStoreProvider>
+    <AdminProvider>
+      <DirectoryStoreProvider>
+        <DirectoryPage />
+        <AdminPinDialog />
+      </DirectoryStoreProvider>
+    </AdminProvider>
   );
 }
 
@@ -154,6 +163,7 @@ function DirectoryPage() {
                 {totalUnverified}
               </Badge>
             </div>
+            <AdminToggle />
             <ThemeToggle />
           </div>
         </div>
@@ -210,12 +220,12 @@ function DirectoryPage() {
           <div className="mb-5 flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1">
             {(
               [
-                ["directory", "Department Directory"],
-                ["links", "Centralized Link Bank"],
-                ["glossary", "📚 Glossary & Acronym Finder"],
-                ["feedback", "CSM Feedback & Wishlist"],
-              ] as [ViewId, string][]
-            ).map(([id, label]) => (
+                ["directory", "Department Directory", LayoutGrid],
+                ["links", "Centralized Link Bank", Link2],
+                ["glossary", "Glossary & Acronym Finder", BookOpen],
+                ["feedback", "CSM Feedback & Wishlist", MessageSquarePlus],
+              ] as [ViewId, string, typeof LifeBuoy][]
+            ).map(([id, label, TabIcon]) => (
               <button
                 key={id}
                 onClick={() => {
@@ -223,12 +233,13 @@ function DirectoryPage() {
                   setQuery("");
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
                   view === id && !q
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 }`}
               >
+                <TabIcon className="size-4" />
                 {label}
               </button>
             ))}
