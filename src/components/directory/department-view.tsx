@@ -240,7 +240,15 @@ export function DepartmentView({
               <TableBody>
                 {dept.outOfScope.map((row) => (
                   <TableRow key={row.need}>
-                    <TableCell className="align-top text-sm">{row.need}</TableCell>
+                    <TableCell className="align-top text-sm">
+                      <span className="flex items-start gap-2.5">
+                        <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-danger-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive ring-1 ring-destructive/25">
+                          <XCircle className="size-3" />
+                          Not us
+                        </span>
+                        <span>{row.need}</span>
+                      </span>
+                    </TableCell>
                     <TableCell className="align-top text-sm font-medium">
                       <GoToPill text={row.goTo} onGoTo={onGoTo} />
                     </TableCell>
