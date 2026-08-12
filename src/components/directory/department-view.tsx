@@ -12,6 +12,7 @@ import type { Department } from "@/data/directory";
 import { CASE_STATUSES, SLA_MATRIX, hasPlaceholder } from "@/data/directory";
 import { deptTheme } from "@/data/dept-theme";
 import { useDirectoryStore } from "@/lib/directory-store";
+import { useAdmin } from "@/lib/admin-store";
 import { CopyButton, isCopyable } from "@/components/directory/copy-button";
 import { EditDepartmentDialog } from "@/components/directory/edit-department-dialog";
 import { TriggerAccordion } from "@/components/directory/trigger-accordion";
