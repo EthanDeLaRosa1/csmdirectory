@@ -43,14 +43,14 @@ export function QuickLinks({ dept }: { dept: Department }) {
                 className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border/70 bg-background/60 p-3"
               >
                 <div className="min-w-[200px] flex-1">
-                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                  <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
                     {l.name}
                     {l.submitted ? (
                       <Badge variant="outline" className="text-[9px] uppercase">
                         CSM submitted
                       </Badge>
                     ) : null}
-                  </p>
+                  </div>
                   {l.description ? (
                     <p className="mt-0.5 text-xs text-muted-foreground">{l.description}</p>
                   ) : null}
