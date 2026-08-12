@@ -31,9 +31,12 @@ export function TriggerAccordion({ dept }: { dept: Department }) {
         return (
           <AccordionItem key={t} value={t} className="border-border/70">
             <AccordionTrigger className="gap-2 py-3 text-left text-sm hover:no-underline">
-              <span className="flex flex-1 gap-2">
-                <ChevronRight className="mt-0.5 size-4 shrink-0 text-success" />
-                <span>{t}</span>
+              <span className="flex flex-1 items-start gap-2.5">
+                <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success ring-1 ring-success/25">
+                  <CheckCircle2 className="size-3" />
+                  Use
+                </span>
+                <span className="flex-1">{t}</span>
               </span>
             </AccordionTrigger>
             <AccordionContent className="space-y-3 pl-6 text-sm">
