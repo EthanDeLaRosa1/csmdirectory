@@ -119,16 +119,18 @@ export function DepartmentView({
   onGoTo?: (deptId: string, section?: string) => void;
 }) {
   const { verificationOf, unverifiedItems } = useDirectoryStore();
+  const { requireAdmin } = useAdmin();
   const [editOpen, setEditOpen] = useState(false);
   const [focusLabel, setFocusLabel] = useState<string | null>(null);
   const unverified = unverifiedItems(dept);
   const verification = verificationOf(dept);
   const theme = deptTheme(dept.id);
 
-  const openEdit = (label?: string) => {
-    setFocusLabel(label ?? null);
-    setEditOpen(true);
-  };
+  const openEdit = (label?: string) =>
+    requireAdmin(() => {
+      setFocusLabel(label ?? null);
+      setEditOpen(true);
+    });
 
   const pulse = (id: string) =>
     pulseSection === id ? "rounded-xl ring-2 ring-primary/60 animate-pulse-glow" : "";
