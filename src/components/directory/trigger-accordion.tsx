@@ -1,4 +1,4 @@
-import { ChevronRight, CircleDot, Lightbulb, TriangleAlert } from "lucide-react";
+import { CheckCircle2, CircleDot, Lightbulb, TriangleAlert } from "lucide-react";
 import type { Department } from "@/data/directory";
 import {
   Accordion,
