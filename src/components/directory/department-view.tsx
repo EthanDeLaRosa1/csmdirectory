@@ -5,8 +5,10 @@ import {
   CircleDot,
   Clock,
   Mail,
+  Lock,
   Pencil,
   ShieldAlert,
+  XCircle,
 } from "lucide-react";
 import type { Department } from "@/data/directory";
 import { CASE_STATUSES, SLA_MATRIX, hasPlaceholder } from "@/data/directory";
