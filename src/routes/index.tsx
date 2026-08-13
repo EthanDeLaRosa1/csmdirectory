@@ -38,13 +38,13 @@ import { Switch } from "@/components/ui/switch";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "CSM Internal Escalation & Resource Directory" },
+      { title: "CSM Directory | Copado" },
       {
         name: "description",
         content:
           "Who to go to for what: triggers, intake channels, SLAs, and 3-tier escalation paths across 9 internal Copado teams.",
       },
-      { property: "og:title", content: "CSM Internal Escalation & Resource Directory" },
+      { property: "og:title", content: "CSM Escalation & Resource Directory" },
       {
         property: "og:description",
         content:
@@ -90,7 +90,6 @@ function DirectoryPage() {
   const [placeholdersOnly, setPlaceholdersOnly] = useState(false);
   const [pulseSection, setPulseSection] = useState<string | null>(null);
 
-
   const q = query.trim();
   const hits = useMemo(() => smartSearch(q, departments), [q, departments]);
 
@@ -119,23 +118,11 @@ function DirectoryPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Streamlined Top Navigation Header */}
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-4 px-5 py-3">
-          <div className="flex items-center gap-3">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Building2 className="size-5" />
-            </span>
-            <div>
-              <h1 className="text-sm font-semibold leading-tight tracking-tight sm:text-base">
-                CSM Internal Escalation &amp; Resource Directory
-              </h1>
-              <p className="text-[11px] text-muted-foreground">
-                Owners: Ethan DeLaRosa &amp; Atravian · Target date: August 15, 2026
-              </p>
-            </div>
-          </div>
-
-          <div className="relative order-last w-full min-w-[240px] flex-1 md:order-none md:w-auto">
+        <div className="mx-auto flex max-w-[1500px] items-center gap-4 px-5 py-2.5">
+          {/* Search Bar - Takes Primary Center Space */}
+          <div className="relative flex-1 min-w-[240px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
@@ -144,22 +131,23 @@ function DirectoryPage() {
                 if (e.key === "Enter" && hits[0]) goTo(hits[0].dept.id, hits[0].section);
               }}
               placeholder="Ask in plain English — “customer needs a SOC 2 report”…"
-              className="pl-9"
+              className="pl-9 h-9 text-xs sm:text-sm"
               aria-label="Search the directory"
             />
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5">
+          {/* Right Aligned Control Toggles */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1">
               <Switch
                 id="placeholders"
                 checked={placeholdersOnly}
                 onCheckedChange={setPlaceholdersOnly}
               />
-              <Label htmlFor="placeholders" className="cursor-pointer text-xs">
-                Unverified only
+              <Label htmlFor="placeholders" className="cursor-pointer text-xs select-none">
+                Unverified
               </Label>
-              <Badge className="bg-warning-soft text-warning-foreground text-[10px]">
+              <Badge className="bg-warning-soft text-warning-foreground text-[10px] px-1.5 py-0">
                 {totalUnverified}
               </Badge>
             </div>
@@ -170,8 +158,22 @@ function DirectoryPage() {
       </header>
 
       <div className="mx-auto flex max-w-[1500px] gap-8 px-5">
-        <nav className="sticky top-[73px] hidden h-[calc(100vh-73px)] w-64 shrink-0 overflow-y-auto py-6 lg:block">
-          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {/* Left Sidebar with Seamless Branding Block */}
+        <nav className="sticky top-[53px] hidden h-[calc(100vh-53px)] w-64 shrink-0 overflow-y-auto py-5 lg:block pr-2">
+          {/* Integrated Title / Branding Header */}
+          <div className="flex items-center gap-2.5 px-3 mb-6">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <Building2 className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-xs font-bold leading-none truncate">CSM Directory</h1>
+              <p className="text-[10px] text-muted-foreground leading-tight mt-1 truncate">
+                
+              </p>
+            </div>
+          </div>
+
+          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
             Departments
           </p>
           <ul className="space-y-1">
@@ -216,6 +218,7 @@ function DirectoryPage() {
           </ul>
         </nav>
 
+        {/* Main Content Area */}
         <main className="min-w-0 flex-1 py-6">
           <div className="mb-5 flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1">
             {(
@@ -262,7 +265,6 @@ function DirectoryPage() {
               ))}
             </div>
           ) : null}
-
 
           {q ? (
             <div className="space-y-6 pb-16">
@@ -328,7 +330,6 @@ function DirectoryPage() {
               <div className="h-10" />
             </div>
           )}
-
         </main>
       </div>
     </div>
