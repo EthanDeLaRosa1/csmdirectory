@@ -12,7 +12,6 @@ import {
   Link2,
   MessageSquarePlus,
   LayoutGrid,
-  Search,
   Server,
   ShieldCheck,
   TrendingUp,
@@ -31,9 +30,7 @@ import { NotSureAssistant } from "@/components/directory/not-sure-assistant";
 import { ThemeToggle } from "@/components/directory/theme-toggle";
 import { deptTheme } from "@/data/dept-theme";
 import { DirectoryStoreProvider, useDirectoryStore } from "@/lib/directory-store";
-import { smartSearch } from "@/lib/smart-search";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
@@ -86,56 +83,117 @@ type ViewId = "directory" | "links" | "csmu" | "glossary" | "feedback";
 
 function DirectoryPage() {
   const { departments, verificationOf, unverifiedItems } = useDirectoryStore();
-  const [query, setQuery] = useState("");
-  const [activeId, setActiveId] = useState(departments[0]!.id);
-  const [view, setView] = useState<ViewId>("directory");
+
+  // Persistent Tab State
+  const [view, setView] = useState<ViewId>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("csm_directory_active_view");
+      if (
+        saved &&
+        ["directory", "links", "csmu", "glossary", "feedback"].includes(saved)
+      ) {
+        return saved as ViewId;
+      }
+    }
+    return "directory";
+  });
+
+  // Persistent Active Department State
+  const [activeId, setActiveId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("csm_directory_active_dept");
+      if (saved && departments.some((d) => d.id === saved)) {
+        return saved;
+      }
+    }
+    return departments[0]!.id;
+  });
+
   const [placeholdersOnly, setPlaceholdersOnly] = useState(false);
   const [pulseSection, setPulseSection] = useState<string | null>(null);
 
-  const q = query.trim();
-  const hits = useMemo(() => smartSearch(q, departments), [q, departments]);
+  const handleTabChange = (newView: ViewId) => {
+    setView(newView);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("csm_directory_active_view", newView);
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const goTo = useCallback((deptId: string, section?: string) => {
     setActiveId(deptId);
     setView("directory");
-    setQuery("");
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("csm_directory_active_dept", deptId);
+      localStorage.setItem("csm_directory_active_view", "directory");
+    }
 
     setPulseSection(section ?? null);
+
     requestAnimationFrame(() => {
       const el = section ? document.getElementById(section) : null;
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      else window.scrollTo({ top: 0, behavior: "smooth" });
+
+      if (el) {
+        el.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      } else {
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      }
     });
-    if (section) window.setTimeout(() => setPulseSection(null), 2600);
+
+    if (section) {
+      window.setTimeout(() => setPulseSection(null), 2600);
+    }
   }, []);
 
-  const active = departments.find((d) => d.id === activeId)!;
-  const totalUnverified = departments.reduce((n, d) => n + unverifiedItems(d).length, 0);
+  const active =
+    departments.find((d) => d.id === activeId) ?? departments[0]!;
 
-  const grouped = useMemo(() => {
-    const map = new Map<Department, typeof hits>();
-    for (const h of hits) map.set(h.dept, [...(map.get(h.dept) ?? []), h]);
-    return [...map.entries()];
-  }, [hits]);
+  const totalUnverified = departments.reduce(
+    (n, d) => n + unverifiedItems(d).length,
+    0
+  );
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Streamlined Top Navigation Header */}
+      {/* Streamlined Header */}
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex max-w-[1500px] items-center gap-4 px-5 py-2.5">
-          {/* Search Bar - Takes Primary Center Space */}
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && hits[0]) goTo(hits[0].dept.id, hits[0].section);
-              }}
-              placeholder="Ask in plain English — “customer needs a SOC 2 report”…"
-              className="pl-9 h-9 text-xs sm:text-sm"
-              aria-label="Search the directory"
-            />
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-5 py-2.5">
+          {/* Left Branding - Visible on all screens */}
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <Building2 className="size-4" />
+            </span>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold tracking-tight">
+                CSM Directory
+              </span>
+
+              <span className="hidden sm:inline-block rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                Copado CS Ops
+              </span>
+            </div>
+          </div>
+
+          {/* Middle Space: Live Directory Indicator */}
+          <div className="hidden md:flex items-center gap-3 rounded-full border border-border/80 bg-muted/40 px-3.5 py-1 text-xs">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
+            </span>
+
+            <span className="text-[11px] font-medium text-muted-foreground">
+              Internal Escalation Paths &amp; SLAs Active
+            </span>
           </div>
 
           {/* Right Aligned Control Toggles */}
@@ -146,13 +204,19 @@ function DirectoryPage() {
                 checked={placeholdersOnly}
                 onCheckedChange={setPlaceholdersOnly}
               />
-              <Label htmlFor="placeholders" className="cursor-pointer text-xs select-none">
+
+              <Label
+                htmlFor="placeholders"
+                className="cursor-pointer text-xs select-none"
+              >
                 Unverified
               </Label>
+
               <Badge className="bg-warning-soft text-warning-foreground text-[10px] px-1.5 py-0">
                 {totalUnverified}
               </Badge>
             </div>
+
             <AdminToggle />
             <ThemeToggle />
           </div>
@@ -160,15 +224,18 @@ function DirectoryPage() {
       </header>
 
       <div className="mx-auto flex max-w-[1500px] gap-8 px-5">
-        {/* Left Sidebar with Seamless Branding Block */}
+        {/* Left Sidebar */}
         <nav className="sticky top-[53px] hidden h-[calc(100vh-53px)] w-64 shrink-0 overflow-y-auto py-5 lg:block pr-2">
-          {/* Integrated Title / Branding Header */}
           <div className="flex items-center gap-2.5 px-3 mb-6">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <Building2 className="size-4" />
             </span>
+
             <div className="min-w-0">
-              <h1 className="text-xs font-bold leading-none truncate">CSM Directory</h1>
+              <h1 className="text-xs font-bold leading-none truncate">
+                CSM Directory
+              </h1>
+
               <p className="text-[10px] text-muted-foreground leading-tight mt-1 truncate">
                 Copado CS Ops
               </p>
@@ -178,13 +245,15 @@ function DirectoryPage() {
           <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
             Departments
           </p>
+
           <ul className="space-y-1">
             {departments.map((d) => {
               const Icon = ICONS[d.id]!;
-              const isActive = d.id === activeId && !q;
+              const isActive = d.id === activeId && view === "directory";
               const count = unverifiedItems(d).length;
               const verified = verificationOf(d);
               const theme = deptTheme(d.id);
+
               return (
                 <li key={d.id}>
                   <button
@@ -195,14 +264,20 @@ function DirectoryPage() {
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     }`}
                   >
-                    <span className={`h-5 w-1 shrink-0 rounded-full ${theme.dot}`} />
+                    <span
+                      className={`h-5 w-1 shrink-0 rounded-full ${theme.dot}`}
+                    />
+
                     <Icon className="size-4 shrink-0" />
+
                     <span className="flex-1 truncate">{d.short}</span>
+
                     {d.internalOnly ? (
                       <Badge variant="destructive" className="text-[9px]">
                         Internal
                       </Badge>
                     ) : null}
+
                     {verified ? (
                       <span
                         title={`Verified ${verified.date}`}
@@ -234,13 +309,9 @@ function DirectoryPage() {
             ).map(([id, label, TabIcon]) => (
               <button
                 key={id}
-                onClick={() => {
-                  setView(id);
-                  setQuery("");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
+                onClick={() => handleTabChange(id)}
                 className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
-                  view === id && !q
+                  view === id
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 }`}
@@ -251,7 +322,7 @@ function DirectoryPage() {
             ))}
           </div>
 
-          {view === "directory" && !q ? (
+          {view === "directory" ? (
             <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
               {departments.map((d) => (
                 <button
@@ -269,53 +340,7 @@ function DirectoryPage() {
             </div>
           ) : null}
 
-          {q ? (
-            <div className="space-y-6 pb-16">
-              <p className="text-sm text-muted-foreground">
-                {grouped.length} department{grouped.length === 1 ? "" : "s"} match “{query}” — click a
-                result to jump straight to the answer.
-              </p>
-              {grouped.map(([dept, lines]) => {
-                const Icon = ICONS[dept.id]!;
-                const theme = deptTheme(dept.id);
-                return (
-                  <div
-                    key={dept.id}
-                    className={`rounded-xl border ${theme.ring} ${theme.soft} p-5`}
-                  >
-                    <button
-                      onClick={() => goTo(dept.id)}
-                      className="flex items-center gap-2 text-left text-base font-semibold hover:underline"
-                    >
-                      <Icon className="size-4" />
-                      {dept.name}
-                    </button>
-                    <ul className="mt-3 space-y-2">
-                      {lines.slice(0, 6).map((l, i) => (
-                        <li key={`${l.kind}-${i}`}>
-                          <button
-                            onClick={() => goTo(dept.id, l.section)}
-                            className="flex w-full flex-wrap items-start gap-2 rounded-lg p-1.5 text-left text-sm hover:bg-accent"
-                          >
-                            <Badge variant="outline" className="text-[10px] uppercase">
-                              {l.kind}
-                            </Badge>
-                            <span className="flex-1 text-foreground/85">{l.text}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-              {grouped.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-                  No results. Try “SOW”, “P1”, “DPA”, or “log retention”.
-                </p>
-              ) : null}
-              <NotSureAssistant departments={departments} onGoTo={goTo} />
-            </div>
-          ) : view === "links" ? (
+          {view === "links" ? (
             <LinkBank />
           ) : view === "csmu" ? (
             <CsmuGuides />
@@ -331,7 +356,12 @@ function DirectoryPage() {
                 pulseSection={pulseSection}
                 onGoTo={goTo}
               />
-              <NotSureAssistant departments={departments} onGoTo={goTo} />
+
+              <NotSureAssistant
+                departments={departments}
+                onGoTo={goTo}
+              />
+
               <div className="h-10" />
             </div>
           )}
