@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CsmuGuides } from "@/components/directory/csmu-guides";
 import {
@@ -84,41 +84,34 @@ type ViewId = "directory" | "links" | "csmu" | "glossary" | "feedback";
 function DirectoryPage() {
   const { departments, verificationOf, unverifiedItems } = useDirectoryStore();
 
-  // Persistent Tab State
-  const [view, setView] = useState<ViewId>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("csm_directory_active_view");
-      if (
-        saved &&
-        ["directory", "links", "csmu", "glossary", "feedback"].includes(saved)
-      ) {
-        return saved as ViewId;
-      }
-    }
-    return "directory";
-  });
-
-  // Persistent Active Department State
-  const [activeId, setActiveId] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("csm_directory_active_dept");
-      if (saved && departments.some((d) => d.id === saved)) {
-        return saved;
-      }
-    }
-    return departments[0]!.id;
-  });
-
+  const [view, setView] = useState<ViewId>("directory");
+  const [activeId, setActiveId] = useState<string>(departments[0]!.id);
   const [placeholdersOnly, setPlaceholdersOnly] = useState(false);
   const [pulseSection, setPulseSection] = useState<string | null>(null);
 
+  // Restore saved view and active department safely after hydration
+  useEffect(() => {
+    try {
+      const savedView = localStorage.getItem("csm_directory_active_view");
+      if (savedView && ["directory", "links", "csmu", "glossary", "feedback"].includes(savedView)) {
+        setView(savedView as ViewId);
+      }
+      const savedDept = localStorage.getItem("csm_directory_active_dept");
+      if (savedDept && departments.some((d) => d.id === savedDept)) {
+        setActiveId(savedDept);
+      }
+    } catch {
+      /* ignore storage errors */
+    }
+  }, [departments]);
+
   const handleTabChange = (newView: ViewId) => {
     setView(newView);
-
-    if (typeof window !== "undefined") {
+    try {
       localStorage.setItem("csm_directory_active_view", newView);
+    } catch {
+      /* ignore */
     }
-
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -126,77 +119,52 @@ function DirectoryPage() {
     setActiveId(deptId);
     setView("directory");
 
-    if (typeof window !== "undefined") {
+    try {
       localStorage.setItem("csm_directory_active_dept", deptId);
       localStorage.setItem("csm_directory_active_view", "directory");
+    } catch {
+      /* ignore */
     }
 
     setPulseSection(section ?? null);
-
     requestAnimationFrame(() => {
       const el = section ? document.getElementById(section) : null;
-
-      if (el) {
-        el.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      } else {
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        });
-      }
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      else window.scrollTo({ top: 0, behavior: "smooth" });
     });
-
-    if (section) {
-      window.setTimeout(() => setPulseSection(null), 2600);
-    }
+    if (section) window.setTimeout(() => setPulseSection(null), 2600);
   }, []);
 
-  const active =
-    departments.find((d) => d.id === activeId) ?? departments[0]!;
-
-  const totalUnverified = departments.reduce(
-    (n, d) => n + unverifiedItems(d).length,
-    0
-  );
+  const active = departments.find((d) => d.id === activeId) ?? departments[0]!;
+  const totalUnverified = departments.reduce((n, d) => n + unverifiedItems(d).length, 0);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Streamlined Header */}
+      {/* Streamlined Header Bar with Live Indicator */}
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-5 py-2.5">
-          {/* Left Branding - Visible on all screens */}
           <div className="flex items-center gap-2.5">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <Building2 className="size-4" />
             </span>
-
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold tracking-tight">
-                CSM Directory
-              </span>
-
-              <span className="hidden sm:inline-block rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="text-xs font-bold tracking-tight">CSM Directory</span>
+              <span className="hidden sm:inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 Copado CS Ops
               </span>
             </div>
           </div>
 
-          {/* Middle Space: Live Directory Indicator */}
           <div className="hidden md:flex items-center gap-3 rounded-full border border-border/80 bg-muted/40 px-3.5 py-1 text-xs">
             <span className="relative flex size-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
             </span>
-
             <span className="text-[11px] font-medium text-muted-foreground">
               Internal Escalation Paths &amp; SLAs Active
             </span>
           </div>
 
-          {/* Right Aligned Control Toggles */}
           <div className="flex items-center gap-2.5 shrink-0">
             <div className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1">
               <Switch
@@ -204,19 +172,13 @@ function DirectoryPage() {
                 checked={placeholdersOnly}
                 onCheckedChange={setPlaceholdersOnly}
               />
-
-              <Label
-                htmlFor="placeholders"
-                className="cursor-pointer text-xs select-none"
-              >
+              <Label htmlFor="placeholders" className="cursor-pointer text-xs select-none">
                 Unverified
               </Label>
-
               <Badge className="bg-warning-soft text-warning-foreground text-[10px] px-1.5 py-0">
                 {totalUnverified}
               </Badge>
             </div>
-
             <AdminToggle />
             <ThemeToggle />
           </div>
@@ -224,18 +186,13 @@ function DirectoryPage() {
       </header>
 
       <div className="mx-auto flex max-w-[1500px] gap-8 px-5">
-        {/* Left Sidebar */}
         <nav className="sticky top-[53px] hidden h-[calc(100vh-53px)] w-64 shrink-0 overflow-y-auto py-5 lg:block pr-2">
           <div className="flex items-center gap-2.5 px-3 mb-6">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <Building2 className="size-4" />
             </span>
-
             <div className="min-w-0">
-              <h1 className="text-xs font-bold leading-none truncate">
-                CSM Directory
-              </h1>
-
+              <h1 className="text-xs font-bold leading-none truncate">CSM Directory</h1>
               <p className="text-[10px] text-muted-foreground leading-tight mt-1 truncate">
                 Copado CS Ops
               </p>
@@ -245,7 +202,6 @@ function DirectoryPage() {
           <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
             Departments
           </p>
-
           <ul className="space-y-1">
             {departments.map((d) => {
               const Icon = ICONS[d.id]!;
@@ -253,7 +209,6 @@ function DirectoryPage() {
               const count = unverifiedItems(d).length;
               const verified = verificationOf(d);
               const theme = deptTheme(d.id);
-
               return (
                 <li key={d.id}>
                   <button
@@ -264,20 +219,14 @@ function DirectoryPage() {
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     }`}
                   >
-                    <span
-                      className={`h-5 w-1 shrink-0 rounded-full ${theme.dot}`}
-                    />
-
+                    <span className={`h-5 w-1 shrink-0 rounded-full ${theme.dot}`} />
                     <Icon className="size-4 shrink-0" />
-
                     <span className="flex-1 truncate">{d.short}</span>
-
                     {d.internalOnly ? (
                       <Badge variant="destructive" className="text-[9px]">
                         Internal
                       </Badge>
                     ) : null}
-
                     {verified ? (
                       <span
                         title={`Verified ${verified.date}`}
@@ -295,7 +244,6 @@ function DirectoryPage() {
           </ul>
         </nav>
 
-        {/* Main Content Area */}
         <main className="min-w-0 flex-1 py-6">
           <div className="mb-5 flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1">
             {(
@@ -356,12 +304,7 @@ function DirectoryPage() {
                 pulseSection={pulseSection}
                 onGoTo={goTo}
               />
-
-              <NotSureAssistant
-                departments={departments}
-                onGoTo={goTo}
-              />
-
+              <NotSureAssistant departments={departments} onGoTo={goTo} />
               <div className="h-10" />
             </div>
           )}
