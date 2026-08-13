@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { CsmuGuides } from "@/components/directory/csmu-guides";
 import {
   Banknote,
   Building2,
@@ -16,6 +17,7 @@ import {
   ShieldCheck,
   TrendingUp,
   UserCog,
+  GraduationCap,
 } from "lucide-react";
 import type { Department } from "@/data/directory";
 import { DepartmentView } from "@/components/directory/department-view";
@@ -80,7 +82,7 @@ function DirectoryRoute() {
   );
 }
 
-type ViewId = "directory" | "links" | "glossary" | "feedback";
+type ViewId = "directory" | "links" | "csmu" | "glossary" | "feedback";
 
 function DirectoryPage() {
   const { departments, verificationOf, unverifiedItems } = useDirectoryStore();
@@ -168,7 +170,7 @@ function DirectoryPage() {
             <div className="min-w-0">
               <h1 className="text-xs font-bold leading-none truncate">CSM Directory</h1>
               <p className="text-[10px] text-muted-foreground leading-tight mt-1 truncate">
-                
+                Copado CS Ops
               </p>
             </div>
           </div>
@@ -225,6 +227,7 @@ function DirectoryPage() {
               [
                 ["directory", "Department Directory", LayoutGrid],
                 ["links", "Centralized Link Bank", Link2],
+                ["csmu", "CSMU Guides", GraduationCap],
                 ["glossary", "Glossary & Acronym Finder", BookOpen],
                 ["feedback", "CSM Feedback & Wishlist", MessageSquarePlus],
               ] as [ViewId, string, typeof LifeBuoy][]
@@ -314,6 +317,8 @@ function DirectoryPage() {
             </div>
           ) : view === "links" ? (
             <LinkBank />
+          ) : view === "csmu" ? (
+            <CsmuGuides />
           ) : view === "glossary" ? (
             <GlossaryFinder />
           ) : view === "feedback" ? (

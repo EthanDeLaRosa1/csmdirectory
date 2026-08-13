@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { DEPARTMENTS, hasPlaceholder, type Department } from "@/data/directory";
+import { supabase } from "@/lib/supabase";
 
 export type DeptOverride = {
   owner?: string;
@@ -59,22 +60,55 @@ export function unverifiedItemsFor(dept: Department): string[] {
 export function DirectoryStoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<StoreState>(EMPTY);
 
+  // Fetch initial state from Supabase (fallback to LocalStorage)
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(KEY);
-      if (raw) setState({ ...EMPTY, ...(JSON.parse(raw) as StoreState) });
-    } catch {
-      /* ignore corrupted storage */
+    async function loadGlobalState() {
+      try {
+        const { data, error } = await supabase
+          .from("directory_state")
+          .select("state")
+          .eq("id", "global_state")
+          .single();
+
+        if (data?.state && !error) {
+          setState({ ...EMPTY, ...(data.state as StoreState) });
+          window.localStorage.setItem(KEY, JSON.stringify(data.state));
+          return;
+        }
+      } catch (e) {
+        console.warn("Could not load from Supabase, loading local state:", e);
+      }
+
+      // Fallback to local storage
+      try {
+        const raw = window.localStorage.getItem(KEY);
+        if (raw) setState({ ...EMPTY, ...(JSON.parse(raw) as StoreState) });
+      } catch {
+        /* storage unavailable */
+      }
     }
+
+    loadGlobalState();
   }, []);
 
+  // Save to both LocalStorage and Supabase globally
   const persist = useCallback((next: StoreState) => {
     setState(next);
+
+    // Save locally
     try {
       window.localStorage.setItem(KEY, JSON.stringify(next));
     } catch {
       /* storage unavailable */
     }
+
+    // Save to Supabase for all CSMs
+    supabase
+      .from("directory_state")
+      .upsert({ id: "global_state", state: next, updated_at: new Date().toISOString() })
+      .then(({ error }) => {
+        if (error) console.error("Error syncing with Supabase:", error);
+      });
   }, []);
 
   const value = useMemo<StoreValue>(() => {
