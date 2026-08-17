@@ -60,36 +60,36 @@ export function unverifiedItemsFor(dept: Department): string[] {
 export function DirectoryStoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<StoreState>(EMPTY);
 
-  // Fetch initial state from Supabase (fallback to LocalStorage)
-  useEffect(() => {
-    async function loadGlobalState() {
-      try {
-        const { data, error } = await supabase
-          .from("directory_state")
-          .select("state")
-          .eq("id", "global_state")
-          .single();
+// Inside DirectoryStoreProvider in src/lib/directory-store.tsx:
+useEffect(() => {
+  async function loadGlobalState() {
+    try {
+      const { data, error } = await supabase
+        .from("directory_state")
+        .select("state")
+        .eq("id", "global_state")
+        .maybeSingle(); // <-- CHANGED FROM .single() TO .maybeSingle()
 
-        if (data?.state && !error) {
-          setState({ ...EMPTY, ...(data.state as StoreState) });
-          window.localStorage.setItem(KEY, JSON.stringify(data.state));
-          return;
-        }
-      } catch (e) {
-        console.warn("Could not load from Supabase, loading local state:", e);
+      if (data?.state && !error) {
+        setState({ ...EMPTY, ...(data.state as StoreState) });
+        window.localStorage.setItem(KEY, JSON.stringify(data.state));
+        return;
       }
-
-      // Fallback to local storage
-      try {
-        const raw = window.localStorage.getItem(KEY);
-        if (raw) setState({ ...EMPTY, ...(JSON.parse(raw) as StoreState) });
-      } catch {
-        /* storage unavailable */
-      }
+    } catch (e) {
+      console.warn("Could not load from Supabase, loading local state:", e);
     }
 
-    loadGlobalState();
-  }, []);
+    // Fallback to local storage
+    try {
+      const raw = window.localStorage.getItem(KEY);
+      if (raw) setState({ ...EMPTY, ...(JSON.parse(raw) as StoreState) });
+    } catch {
+      /* storage unavailable */
+    }
+  }
+
+  loadGlobalState();
+}, []);
 
   // Save to both LocalStorage and Supabase globally
   const persist = useCallback((next: StoreState) => {
