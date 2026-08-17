@@ -294,9 +294,7 @@ export function DepartmentView({
               ) : null}
             </CardContent>
           </Card>
-          <div id="sec-links" className={`mt-4 scroll-mt-28 ${pulse("sec-links")}`}>
-            <QuickLinks dept={dept} />
-          </div>
+          {/* quick links moved to full-width section below */}
         </div>
 
         <div id="sec-contacts" className={`scroll-mt-28 ${pulse("sec-contacts")}`}>
@@ -348,6 +346,11 @@ export function DepartmentView({
             </CardContent>
           </Card>
         </div>
+      </section>
+
+      {/* full-width quick links & key resources */}
+      <section id="sec-links" className={`mt-4 scroll-mt-28 ${pulse("sec-links")}`}>
+        <QuickLinks dept={dept} />
       </section>
 
       {dept.id === "customer-support" ? (

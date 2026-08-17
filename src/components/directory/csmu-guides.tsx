@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { GraduationCap, ExternalLink, Search, Copy, Check, Video, Plus, Trash2 } from "lucide-react";
+import { GraduationCap, ExternalLink, Search, Copy, Check, Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,7 +75,6 @@ export function CsmuGuides() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // Form states
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState("CSM Process");
   const [newUrl, setNewUrl] = useState("");
@@ -94,7 +93,7 @@ export function CsmuGuides() {
         setGuides([...DEFAULT_GUIDES, ...(data as CsmuGuide[])]);
       }
     } catch {
-      /* fallback to defaults */
+      /* fallback */
     }
   }
 
@@ -160,7 +159,6 @@ export function CsmuGuides() {
           </Button>
         </div>
 
-        {/* Dynamic Add Form */}
         {showAddForm ? (
           <form onSubmit={handleAddGuide} className="mt-4 pt-4 border-t border-border grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -215,7 +213,6 @@ export function CsmuGuides() {
           </form>
         ) : null}
 
-        {/* Search & Filter */}
         <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -245,7 +242,6 @@ export function CsmuGuides() {
         </div>
       </div>
 
-      {/* Guide Cards */}
       <div className="grid gap-4 sm:grid-cols-2">
         {filteredGuides.map((guide) => (
           <div
@@ -268,26 +264,38 @@ export function CsmuGuides() {
                   ) : null}
                 </div>
               </div>
-              <h3 className="font-semibold text-sm mb-1">{guide.title}</h3>
-              <p className="text-xs text-muted-foreground line-clamp-3 mb-4">{guide.description}</p>
-            </div>
 
-            <div className="flex items-center gap-2 pt-3 border-t border-border/50">
+              {/* Hyperlinked Title */}
               <a
                 href={guide.url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                className="group inline-flex items-center gap-1.5 font-semibold text-sm hover:text-primary transition-colors mb-1"
               >
-                <Video className="size-3.5" /> Watch Recording <ExternalLink className="size-3" />
+                <span>{guide.title}</span>
+                <ExternalLink className="size-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
               </a>
+
+              <p className="text-xs text-muted-foreground line-clamp-3 mt-1">{guide.description}</p>
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-border/50 mt-4">
+              <span className="text-[10px] text-muted-foreground">Click title to watch recording</span>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 px-2.5 text-xs"
+                className="h-7 px-2.5 text-xs gap-1"
                 onClick={() => handleCopy(guide.url, guide.id)}
               >
-                {copiedId === guide.id ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+                {copiedId === guide.id ? (
+                  <>
+                    <Check className="size-3 text-emerald-500" /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-3" /> Copy Link
+                  </>
+                )}
               </Button>
             </div>
           </div>

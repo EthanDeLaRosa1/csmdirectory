@@ -4,7 +4,6 @@ import { deptTheme } from "@/data/dept-theme";
 import { CopyButton } from "@/components/directory/copy-button";
 import { useLinkBank } from "@/lib/workspace-store";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 /**
@@ -36,36 +35,42 @@ export function QuickLinks({ dept }: { dept: Department }) {
             No links yet — add one from the Centralized Link Bank tab.
           </p>
         ) : (
-          <ul className="space-y-3">
+          <div className="grid gap-4 md:grid-cols-2">
             {all.map((l) => (
-              <li
+              <Card
                 key={l.url}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border/70 bg-background/60 p-3"
+                className="rounded-lg border border-border/70 bg-background/60 p-3"
               >
-                <div className="min-w-[200px] flex-1">
-                  <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                    {l.name}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-[160px] flex-1">
+                    <a
+                      href={l.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group inline-flex items-center gap-1.5 font-semibold text-sm hover:text-primary transition-colors"
+                    >
+                      <span className="truncate">{l.name}</span>
+                      <ExternalLink className="size-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
+                    </a>
                     {l.submitted ? (
-                      <Badge variant="outline" className="text-[9px] uppercase">
-                        CSM submitted
-                      </Badge>
+                      <div className="mt-1">
+                        <Badge variant="outline" className="text-[9px] uppercase">
+                          CSM submitted
+                        </Badge>
+                      </div>
+                    ) : null}
+                    {l.description ? (
+                      <p className="mt-1 text-xs text-muted-foreground">{l.description}</p>
                     ) : null}
                   </div>
-                  {l.description ? (
-                    <p className="mt-0.5 text-xs text-muted-foreground">{l.description}</p>
-                  ) : null}
+
+                  <div className="flex items-center gap-1.5">
+                    <CopyButton value={l.url} label={l.name} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Button asChild size="sm" variant="outline">
-                    <a href={l.url} target="_blank" rel="noreferrer noopener">
-                      Open link <ExternalLink className="size-3" />
-                    </a>
-                  </Button>
-                  <CopyButton value={l.url} label={l.name} />
-                </div>
-              </li>
+              </Card>
             ))}
-          </ul>
+          </div>
         )}
       </CardContent>
     </Card>
