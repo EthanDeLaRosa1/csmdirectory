@@ -183,12 +183,12 @@ export function LinkBank() {
     try {
       const { data, error } = await supabase.from("link_bank").insert([payload]).select();
       if (error) {
-        const fallback: LinkItem = { id: "temp-" + Date.now(), ...payload };
-        setLinks((prev) => [fallback, ...prev]);
+        alert("Supabase error: " + (error.message || String(error)));
+        return;
       } else if (data && data[0]) {
         setLinks((prev) => [data[0] as LinkItem, ...prev]);
       }
-    } catch {
+    } catch (e) {
       const fallback: LinkItem = { id: "temp-" + Date.now(), ...payload };
       setLinks((prev) => [fallback, ...prev]);
     } finally {
