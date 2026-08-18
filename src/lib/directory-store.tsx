@@ -38,23 +38,41 @@ function applyOverride(dept: Department, ov?: DeptOverride): Department {
   if (!ov) return dept;
   return {
     ...dept,
-    owner: ov.owner?.trim() ? ov.owner : dept.owner,
+    owner: ov.owner !== undefined ? (ov.owner.trim() ? ov.owner : "") : dept.owner,
     contacts: [
-      ...dept.contacts.map((c) => {
-        const next = ov.contacts?.[c.label];
-        return next && next.trim() ? { ...c, value: next } : c;
-      }),
+      // base contacts: respect overrides; explicit empty string removes the contact
+      ...dept.contacts
+        .map((c) => {
+          if (!ov.contacts || !(c.label in ov.contacts)) return c;
+          const next = ov.contacts[c.label];
+          return next && next.trim() ? { ...c, value: next } : null;
+        })
+        .filter(Boolean) as { label: string; value: string }[],
+      // extra contacts appended by reviewers (only include fully populated rows)
       ...(ov.extraContacts ?? []).filter((c) => c.label.trim() && c.value.trim()),
     ],
   };
 }
 
 export function unverifiedItemsFor(dept: Department): string[] {
-  return [
-    ...dept.placeholders.filter(hasPlaceholder),
-    ...dept.contacts.filter((c) => hasPlaceholder(c.value)).map((c) => `${c.label}: ${c.value}`),
-    ...(hasPlaceholder(dept.owner) ? [`Entry Owner: ${dept.owner}`] : []),
-  ];
+  const contactPlaceholders = dept.contacts
+    .filter((c) => hasPlaceholder(c.value))
+    .map((c) => `${c.label}: ${c.value}`);
+
+  const ownerPlaceholder = hasPlaceholder(dept.owner) ? [`Entry Owner: ${dept.owner}`] : [];
+
+  // Only consider freeform placeholders if they reference an existing contact label or the owner
+  const normalizedLabels = dept.contacts.map((c) => c.label.toLowerCase());
+  const placeholdersFiltered = dept.placeholders.filter((p) => {
+    if (!hasPlaceholder(p)) return false;
+    const text = p.replace(/\[.*?\]/, "").trim().toLowerCase();
+    // match if placeholder mentions a known contact label or the word 'owner'
+    if (normalizedLabels.some((lbl) => text.includes(lbl))) return true;
+    if (dept.owner && String(dept.owner).toLowerCase() && text.includes("owner")) return true;
+    return false;
+  });
+
+  return [...placeholdersFiltered, ...contactPlaceholders, ...ownerPlaceholder];
 }
 
 export function DirectoryStoreProvider({ children }: { children: React.ReactNode }) {

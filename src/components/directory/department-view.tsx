@@ -43,7 +43,8 @@ function PlaceholderPill({ children }: { children: React.ReactNode }) {
 }
 
 export function MaybePlaceholder({ text }: { text: string }) {
-  if (hasPlaceholder(text)) return <PlaceholderPill>{text}</PlaceholderPill>;
+  const { isAdmin } = useAdmin();
+  if (hasPlaceholder(text)) return isAdmin ? <PlaceholderPill>{text}</PlaceholderPill> : <span>{text}</span>;
   return <span>{text}</span>;
 }
 
@@ -128,6 +129,18 @@ export function DepartmentView({
   const unverified = unverifiedItems(dept);
   const verification = verificationOf(dept);
   const theme = deptTheme(dept.id);
+  const hasSla = (() => {
+    const explicit = (dept as any).sla;
+    if (explicit && String(explicit).trim() && String(explicit).trim().toLowerCase() !== "n/a") return true;
+    // check contacts for SLA / Turnaround entries
+    if (
+      dept.contacts.some((c) =>
+        /sla|turnaround|turnaround sla|response target|priority/i.test(c.label + " " + (c.value ?? "")) && c.value && String(c.value).trim() && String(c.value).trim().toLowerCase() !== "n/a"
+      )
+    )
+      return true;
+    return false;
+  })();
 
   const openEdit = (label?: string) =>
     requireAdmin(() => {
@@ -160,11 +173,15 @@ export function DepartmentView({
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {unverified.length ? (
-              unverified.map((p) => (
-                <button key={p} onClick={() => openEdit(p.split(":")[0])}>
-                  <PlaceholderPill>{p}</PlaceholderPill>
-                </button>
-              ))
+                unverified.map((p) => (
+                  isAdmin ? (
+                    <button key={p} onClick={() => openEdit(p.split(":" )[0])}>
+                      <PlaceholderPill>{p}</PlaceholderPill>
+                    </button>
+                  ) : (
+                    <span key={p}>{p}</span>
+                  )
+                ))
             ) : (
               <p className="text-sm text-muted-foreground">
                 No unverified placeholders in this department.
@@ -223,44 +240,46 @@ export function DepartmentView({
         </Card>
       </section>
 
-      <section id="sec-scope" className={`scroll-mt-28 ${pulse("sec-scope")}`}>
-        <SectionTitle hint="Route these elsewhere">Out of scope</SectionTitle>
-        <Card className="border-destructive/40">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-destructive">
-              <AlertTriangle className="size-4" /> Go here instead
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Customer need</TableHead>
-                  <TableHead>Go here instead</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dept.outOfScope.map((row) => (
-                  <TableRow key={row.need}>
-                    <TableCell className="align-top text-sm">
-                      <span className="flex items-start gap-2.5">
-                        <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-danger-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive ring-1 ring-destructive/25">
-                          <XCircle className="size-3" />
-                          Not us
-                        </span>
-                        <span>{row.need}</span>
-                      </span>
-                    </TableCell>
-                    <TableCell className="align-top text-sm font-medium">
-                      <GoToPill text={row.goTo} onGoTo={onGoTo} />
-                    </TableCell>
+      {dept.outOfScope && dept.outOfScope.length > 0 ? (
+        <section id="sec-scope" className={`scroll-mt-28 ${pulse("sec-scope")}`}>
+          <SectionTitle hint="Route these elsewhere">Out of scope</SectionTitle>
+          <Card className="border-destructive/40">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-destructive">
+                <AlertTriangle className="size-4" /> Go here instead
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Customer need</TableHead>
+                    <TableHead>Go here instead</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </section>
+                </TableHeader>
+                <TableBody>
+                  {dept.outOfScope.map((row) => (
+                    <TableRow key={row.need}>
+                      <TableCell className="align-top text-sm">
+                        <span className="flex items-start gap-2.5">
+                          <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-danger-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive ring-1 ring-destructive/25">
+                            <XCircle className="size-3" />
+                            Not us
+                          </span>
+                          <span>{row.need}</span>
+                        </span>
+                      </TableCell>
+                      <TableCell className="align-top text-sm font-medium">
+                        <GoToPill text={row.goTo} onGoTo={onGoTo} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div id="sec-intake" className={`scroll-mt-28 ${pulse("sec-intake")}`}>
@@ -353,7 +372,7 @@ export function DepartmentView({
         <QuickLinks dept={dept} />
       </section>
 
-      {dept.id === "customer-support" ? (
+      {dept.id === "customer-support" && hasSla ? (
         <>
           <section id="sec-sla" className={`scroll-mt-28 ${pulse("sec-sla")}`}>
             <SectionTitle hint="Response targets by contract tier">Priority & SLA matrix</SectionTitle>
@@ -421,7 +440,8 @@ export function DepartmentView({
         <EscalationStepper dept={dept} />
       </section>
 
-      <section>
+      {isAdmin ? (
+        <section>
         <SectionTitle
           action={
             <Button size="sm" variant="outline" onClick={() => openEdit()}>
@@ -434,16 +454,23 @@ export function DepartmentView({
         </SectionTitle>
         <div className="flex flex-wrap gap-2">
           {unverified.length ? (
-            unverified.map((p) => (
-              <button key={p} onClick={() => openEdit(p.split(":")[0])}>
-                <PlaceholderPill>{p}</PlaceholderPill>
-              </button>
-            ))
+            unverified.map((p) =>
+              isAdmin ? (
+                <button key={p} onClick={() => openEdit(p.split(":")[0])}>
+                  <PlaceholderPill>{p}</PlaceholderPill>
+                </button>
+              ) : (
+                <span key={p} className="text-sm text-muted-foreground">
+                  {p}
+                </span>
+              )
+            )
           ) : (
             <p className="text-sm text-muted-foreground">All entries verified.</p>
           )}
         </div>
-      </section>
+        </section>
+      ) : null}
 
       <Separator />
       <p className="pb-10 text-xs text-muted-foreground">
@@ -472,6 +499,7 @@ function Header({
   onEdit: () => void;
 }) {
   const theme = deptTheme(dept.id);
+  const { isAdmin } = useAdmin();
   return (
     <div>
       <div className={`mb-4 h-1.5 w-full rounded-full bg-gradient-to-r ${theme.accent}`} />
@@ -489,7 +517,7 @@ function Header({
           <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-0.5 text-[11px] font-medium text-success ring-1 ring-success/30">
             <BadgeCheck className="size-3" /> Verified {verifiedOn.date} · {verifiedOn.by}
           </span>
-        ) : unverifiedCount > 0 ? (
+        ) : isAdmin && unverifiedCount > 0 ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2.5 py-0.5 text-[11px] font-medium text-warning-foreground ring-1 ring-warning/40">
             <Clock className="size-3" /> {unverifiedCount} pending verification
           </span>

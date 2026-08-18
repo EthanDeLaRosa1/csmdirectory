@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, RotateCcw, Save } from "lucide-react";
+import { Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Department } from "@/data/directory";
 import { hasPlaceholder } from "@/data/directory";
@@ -55,7 +55,18 @@ export function EditDepartmentDialog({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="owner">Entry owner</Label>
-            <Input id="owner" value={owner} onChange={(e) => setOwner(e.target.value)} />
+            <div className="flex items-center gap-2">
+              <Input id="owner" value={owner} onChange={(e) => setOwner(e.target.value)} />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setOwner("")}
+                title="Clear entry owner"
+                className="inline-flex items-center justify-center"
+              >
+                <Trash2 className="size-4 text-destructive" />
+              </Button>
+            </div>
           </div>
 
           {dept.contacts.map((c) => (
@@ -68,25 +79,47 @@ export function EditDepartmentDialog({
                   </span>
                 ) : null}
               </Label>
-              <Input
-                id={`c-${c.label}`}
-                autoFocus={focusLabel === c.label}
-                value={contacts[c.label] ?? ""}
-                onChange={(e) => setContacts((s) => ({ ...s, [c.label]: e.target.value }))}
-                placeholder="e.g. jane.doe@copado.com or #ps-intake"
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id={`c-${c.label}`}
+                  autoFocus={focusLabel === c.label}
+                  value={contacts[c.label] ?? ""}
+                  onChange={(e) => setContacts((s) => ({ ...s, [c.label]: e.target.value }))}
+                  placeholder="e.g. jane.doe@copado.com or #ps-intake"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setContacts((s) => ({ ...s, [c.label]: "" }))}
+                  title={`Clear ${c.label}`}
+                  className="inline-flex items-center justify-center"
+                >
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              </div>
             </div>
           ))}
 
           {extra.map((row, i) => (
-            <div key={i} className="grid gap-2 sm:grid-cols-[1fr_2fr]">
-              <Input
-                value={row.label}
-                placeholder="Field (e.g. Slack channel)"
-                onChange={(e) =>
-                  setExtra((s) => s.map((r, j) => (j === i ? { ...r, label: e.target.value } : r)))
-                }
-              />
+            <div key={i} className="grid gap-2 sm:grid-cols-[1fr_2fr] items-center">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={row.label}
+                  placeholder="Field (e.g. Slack channel)"
+                  onChange={(e) =>
+                    setExtra((s) => s.map((r, j) => (j === i ? { ...r, label: e.target.value } : r)))
+                  }
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setExtra((s) => s.filter((_, j) => j !== i))}
+                  title={`Remove field ${i + 1}`}
+                  className="inline-flex items-center justify-center"
+                >
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              </div>
               <Input
                 value={row.value}
                 placeholder="Value (e.g. #csm-team)"
