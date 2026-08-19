@@ -16,90 +16,6 @@ interface LinkItem {
   updated_by?: string;
 }
 
-const INITIAL_LINKS: LinkItem[] = [
-  {
-    id: "l1",
-    title: "Customer Support Escalation Portal",
-    category: "Customer Support",
-    url: "https://success.copado.com",
-    description: "Official portal for submitting tickets, tracking SLAs, and escalating P1/P2 support cases.",
-    updated_at: "2026-08-01T00:00:00Z",
-    updated_by: "CS Ops",
-  },
-  {
-    id: "l2",
-    title: "TAM Engagement Request Form",
-    category: "Technical Account Managers",
-    url: "https://copado.service-now.com/tam_request",
-    description: "Form to request dedicated TAM allocation or technical architecture assistance.",
-    updated_at: "2026-08-01T00:00:00Z",
-    updated_by: "CS Ops",
-  },
-  {
-    id: "l3",
-    title: "Professional Services SOW & Scope Intake",
-    category: "Professional Services",
-    url: "https://copado.com/ps-sow-request",
-    description: "Scope drafting and SOW generation for custom DevOps implementation projects.",
-    updated_at: "2026-08-01T00:00:00Z",
-    updated_by: "CS Ops",
-  },
-  {
-    id: "l4",
-    title: "Copado Infrastructure & Trust Status Page",
-    category: "Infrastructure & Cloud Ops",
-    url: "https://trust.copado.com",
-    description: "Real-time system health, scheduled maintenance windows, and uptime metrics.",
-    updated_at: "2026-08-01T00:00:00Z",
-    updated_by: "Cloud Ops",
-  },
-  {
-    id: "l5",
-    title: "Product Feedback & Roadmap Portal",
-    category: "Product Management",
-    url: "https://ideas.copado.com",
-    description: "Submit feature enhancements, vote on roadmap items, and review product release notes.",
-    updated_at: "2026-08-01T00:00:00Z",
-    updated_by: "Product Team",
-  },
-  {
-    id: "l6",
-    title: "Deal Desk & AE Co-Selling Request",
-    category: "Sales & AE Co-Selling",
-    url: "https://salesforce.com/dealdesk",
-    description: "Intake form for expansion opportunities, license additions, and AE co-selling assistance.",
-    updated_at: "2026-08-01T00:00:00Z",
-    updated_by: "Sales Enablement",
-  },
-  {
-    id: "l7",
-    title: "Finance & Invoice Inquiry Portal",
-    category: "Finance & Billing",
-    url: "https://billing.copado.com",
-    description: "Submit billing disputes, request invoice copies, or update payment terms.",
-    updated_at: "2026-08-01T00:00:00Z",
-    updated_by: "Finance Dept",
-  },
-  {
-    id: "l8",
-    title: "InfoSec & Compliance Questionnaire Portal",
-    category: "Security & InfoSec",
-    url: "https://trust.copado.com/security",
-    description: "Access SOC 2 Type II reports, ISO certifications, and security vendor assessment packets.",
-    updated_at: "2026-08-01T00:00:00Z",
-    updated_by: "InfoSec",
-  },
-  {
-    id: "l9",
-    title: "Legal & Contract Redline Review Intake",
-    category: "Legal & Contracts",
-    url: "https://legal.copado.com/intake",
-    description: "Submit custom MSAs, NDAs, and customer contract redlines for legal team review.",
-    updated_at: "2026-08-01T00:00:00Z",
-    updated_by: "Legal Team",
-  },
-];
-
 const CATEGORIES = [
   "Customer Support",
   "Technical Account Managers",
@@ -127,18 +43,21 @@ function formatDate(dateStr?: string) {
 
 export function LinkBank() {
   const { isAdmin } = useAdmin();
-  const [links, setLinks] = useState<LinkItem[]>(INITIAL_LINKS);
+  const [links, setLinks] = useState<LinkItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Creation form state
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Customer Support");
   const [url, setUrl] = useState("");
   const [description, setDescription] = useState("");
   const [editorName, setEditorName] = useState("");
 
+  // Edit form state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editCategory, setEditCategory] = useState("");
@@ -146,20 +65,36 @@ export function LinkBank() {
   const [editDescription, setEditDescription] = useState("");
   const [editEditorName, setEditEditorName] = useState("");
 
-  const categories = ["All", ...Array.from(new Set(links.map((l) => l.category)))];
-
   useEffect(() => {
     fetchLinks();
   }, []);
 
   async function fetchLinks() {
+    setLoading(true);
     try {
-      const { data, error } = await supabase.from("link_bank").select("*");
-      if (!error && data && data.length > 0) {
-        setLinks([...INITIAL_LINKS, ...(data as LinkItem[])]);
+      const { data, error } = await supabase
+        .from("link_bank")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching links from Supabase:", error.message);
+      } else if (data) {
+        const mappedData: LinkItem[] = data.map((item: any) => ({
+          id: item.id,
+          title: item.title || item.name || "Untitled Link",
+          category: item.category || item.department || "Customer Support",
+          url: item.url || "#",
+          description: item.description || "",
+          updated_at: item.updated_at,
+          updated_by: item.updated_by || "CS Ops",
+        }));
+        setLinks(mappedData);
       }
-    } catch {
-      /* fallback */
+    } catch (err) {
+      console.error("Fetch exception:", err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -180,25 +115,28 @@ export function LinkBank() {
       updated_by: authorStr,
     };
 
-    try {
-      const { data, error } = await supabase.from("link_bank").insert([payload]).select();
-      if (error) {
-        alert("Supabase error: " + (error.message || String(error)));
-        return;
-      } else if (data && data[0]) {
-        setLinks((prev) => [data[0] as LinkItem, ...prev]);
-      }
-    } catch (e) {
-      const fallback: LinkItem = { id: "temp-" + Date.now(), ...payload };
-      setLinks((prev) => [fallback, ...prev]);
-    } finally {
-      setSaving(false);
+    const { data, error } = await supabase.from("link_bank").insert([payload]).select();
+
+    if (error) {
+      alert("Failed to save link to database: " + error.message);
+    } else if (data && data[0]) {
+      const inserted: LinkItem = {
+        id: data[0].id,
+        title: data[0].title || payload.title,
+        category: data[0].category || payload.category,
+        url: data[0].url || payload.url,
+        description: data[0].description || payload.description,
+        updated_at: data[0].updated_at || nowIso,
+        updated_by: data[0].updated_by || authorStr,
+      };
+      setLinks((prev) => [inserted, ...prev]);
       setTitle("");
       setUrl("");
       setDescription("");
       setEditorName("");
       setShowAdd(false);
     }
+    setSaving(false);
   }
 
   function startEditing(item: LinkItem) {
@@ -214,7 +152,7 @@ export function LinkBank() {
     const authorStr = editEditorName.trim() || "CSM Team Member";
     const nowIso = new Date().toISOString();
 
-    const updatedData = {
+    const updatedPayload = {
       title: editTitle.trim(),
       category: editCategory,
       url: editUrl.trim(),
@@ -223,23 +161,33 @@ export function LinkBank() {
       updated_by: authorStr,
     };
 
+    const { error } = await supabase.from("link_bank").update(updatedPayload).eq("id", id);
+
+    if (error) {
+      alert("Failed to update link in database: " + error.message);
+      return;
+    }
+
     setLinks((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, ...updatedData } : l))
+      prev.map((l) => (l.id === id ? { ...l, ...updatedPayload } : l))
     );
     setEditingId(null);
-
-    try {
-      await supabase.from("link_bank").update(updatedData).eq("id", id);
-    } catch {
-      /* ignore */
-    }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this resource link?")) return;
+    if (!confirm("Are you sure you want to permanently delete this resource link?")) return;
+
+    const { error } = await supabase.from("link_bank").delete().eq("id", id);
+
+    if (error) {
+      alert("Failed to delete link from database: " + error.message);
+      return;
+    }
+
     setLinks((prev) => prev.filter((l) => l.id !== id));
-    await supabase.from("link_bank").delete().eq("id", id);
   }
+
+  const categories = ["All", ...Array.from(new Set(links.map((l) => l.category)))];
 
   const filtered = links.filter((l) => {
     const matchesCategory = selectedCategory === "All" || l.category === selectedCategory;
@@ -270,6 +218,7 @@ export function LinkBank() {
           </Button>
         </div>
 
+        {/* Add Link Form */}
         {showAdd ? (
           <form onSubmit={handleAddLink} className="mt-4 pt-4 border-t border-border grid gap-3 sm:grid-cols-2">
             <Input
@@ -323,6 +272,7 @@ export function LinkBank() {
           </form>
         ) : null}
 
+        {/* Search & Category Filter Pills */}
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -352,86 +302,94 @@ export function LinkBank() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {filtered.map((item) => {
-          const isEditing = editingId === item.id;
+      {/* Loading state */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-muted-foreground text-xs gap-2">
+          <Loader2 className="size-4 animate-spin" /> Loading resource links from database...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
+          No resource links found. Click "+ Add New Link" to add one!
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {filtered.map((item) => {
+            const isEditing = editingId === item.id;
 
-          if (isEditing) {
-            return (
-              <div key={item.id} className="rounded-xl border border-primary bg-card p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-primary">Editing Link Resource</span>
-                  <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground">
-                    <X className="size-4" />
-                  </button>
+            if (isEditing) {
+              return (
+                <div key={item.id} className="rounded-xl border border-primary bg-card p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-primary">Editing Link Resource</span>
+                    <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground">
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                  <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title" className="text-xs h-8" />
+                  <Input value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="URL" className="text-xs h-8" />
+                  <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs">
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Description" className="text-xs h-8" />
+                  <Input value={editEditorName} onChange={(e) => setEditEditorName(e.target.value)} placeholder="Updated By (Your Name)" className="text-xs h-8" />
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => setEditingId(null)}>Cancel</Button>
+                    <Button size="sm" className="text-xs h-7 gap-1" onClick={() => handleSaveEdit(item.id)}>
+                      <Check className="size-3" /> Save Changes
+                    </Button>
+                  </div>
                 </div>
-                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title" className="text-xs h-8" />
-                <Input value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="URL" className="text-xs h-8" />
-                <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs">
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-                <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Description" className="text-xs h-8" />
-                <Input value={editEditorName} onChange={(e) => setEditEditorName(e.target.value)} placeholder="Updated By (Your Name)" className="text-xs h-8" />
-                <div className="flex justify-end gap-2 pt-1">
-                  <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => setEditingId(null)}>Cancel</Button>
-                  <Button size="sm" className="text-xs h-7 gap-1" onClick={() => handleSaveEdit(item.id)}>
-                    <Check className="size-3" /> Save Changes
-                  </Button>
+              );
+            }
+
+            return (
+              <div
+                key={item.id}
+                className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between transition-all hover:border-primary/40"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge variant="secondary" className="text-[10px]">
+                      {item.category}
+                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => startEditing(item)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="Edit Link Details">
+                        <Pencil className="size-3.5" />
+                      </button>
+                      <button onClick={() => handleDelete(item.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1" title="Delete Link">
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group inline-flex items-center gap-1.5 font-semibold text-sm hover:text-primary transition-colors mb-1"
+                  >
+                    <span>{item.title}</span>
+                    <ExternalLink className="size-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
+                  </a>
+
+                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-3 mt-3 border-t border-border/40">
+                  <span className="flex items-center gap-1">
+                    <Clock className="size-3" /> {formatDate(item.updated_at)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <User className="size-3" /> {item.updated_by || "CS Ops"}
+                  </span>
                 </div>
               </div>
             );
-          }
-
-          return (
-            <div
-              key={item.id}
-              className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between transition-all hover:border-primary/40"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Badge variant="secondary" className="text-[10px]">
-                    {item.category}
-                  </Badge>
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => startEditing(item)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="Edit Link Details">
-                      <Pencil className="size-3.5" />
-                    </button>
-                    {isAdmin ? (
-                      <button onClick={() => handleDelete(item.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1" title="Admin: Delete Link">
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* Hyperlinked Title */}
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group inline-flex items-center gap-1.5 font-semibold text-sm hover:text-primary transition-colors mb-1"
-                >
-                  <span>{item.title}</span>
-                  <ExternalLink className="size-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
-                </a>
-
-                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
-              </div>
-
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-3 mt-3 border-t border-border/40">
-                <span className="flex items-center gap-1">
-                  <Clock className="size-3" /> {formatDate(item.updated_at)}
-                </span>
-                <span className="flex items-center gap-1">
-                  <User className="size-3" /> {item.updated_by || "CS Ops"}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   );
 }
