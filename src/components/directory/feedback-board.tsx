@@ -91,7 +91,7 @@ export function FeedbackBoard() {
         const map: Record<string, CommentItem[]> = {};
         (data as CommentItem[]).forEach((c) => {
           if (!map[c.feedback_id]) map[c.feedback_id] = [];
-          map[c.feedback_id].push(c);
+          map[c.feedback_id]!.push(c);
         });
         setCommentsMap(map);
       }
