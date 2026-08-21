@@ -23,7 +23,6 @@ import { supabase } from "@/lib/supabase";
 
 const SAMPLE_ACCOUNTS = ["Brenntag", "Jeppesen", "Travelers", "Copado"];
 
-// --- CHIIKAWA CHARACTER SVG ARTWORK ---
 const ChiikawaAvatar = () => (
   <svg className="w-10 h-10 drop-shadow-md" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="8" cy="8" r="4.5" fill="#FFFFFF" stroke="#333333" strokeWidth="1.5" />
@@ -72,16 +71,15 @@ export const GongItTab = () => {
   const [result, setResult] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copiedPromptIndex, setCopiedPromptIndex] = useState<number | null>(null);
-  const [isEthanTheme, setIsEthanTheme] = useState(false);
+  const [isChiikawaTheme, setIsChiikawaTheme] = useState(false);
 
-  // Request token and timer ref for instant cancellation
   const searchIdRef = useRef<number>(0);
   const activeTimersRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
     const checkTheme = () => {
       const active = localStorage.getItem("csm_accent_theme");
-      setIsEthanTheme(active === "ethan");
+      setIsChiikawaTheme(active === "chiikawa");
     };
     checkTheme();
     window.addEventListener("storage", checkTheme);
@@ -93,9 +91,7 @@ export const GongItTab = () => {
   }, []);
 
   const handleCancelSearch = () => {
-    // Increment search token so any in-flight promise resolves as stale
     searchIdRef.current += 1;
-
     activeTimersRef.current.forEach(clearTimeout);
     activeTimersRef.current = [];
 
@@ -120,8 +116,8 @@ export const GongItTab = () => {
     setResult(null);
     setProgressStage(1);
     setProgressText(
-      isEthanTheme
-        ? "Chiikawa is checking Supabase... 🎀"
+      isChiikawaTheme
+        ? "Searching Supabase database... 🎀"
         : "Querying Supabase database for support cases..."
     );
 
@@ -129,8 +125,8 @@ export const GongItTab = () => {
       if (searchIdRef.current === thisSearchId) {
         setProgressStage(2);
         setProgressText(
-          isEthanTheme
-            ? "Hachiware is matching Gong transcripts... 🐱"
+          isChiikawaTheme
+            ? "Matching Gong transcripts... 🐱"
             : "Extracting email domains & querying Gong API..."
         );
       }
@@ -140,8 +136,8 @@ export const GongItTab = () => {
       if (searchIdRef.current === thisSearchId) {
         setProgressStage(3);
         setProgressText(
-          isEthanTheme
-            ? "Usagi is packing Walt's Briefcase! YAHA! 🐰"
+          isChiikawaTheme
+            ? "Packaging the Briefcase! YAHA! 🐰"
             : "Synthesizing transcripts & building Briefcase..."
         );
       }
@@ -154,7 +150,6 @@ export const GongItTab = () => {
         body: { accountName: trimmed, daysBack: 365 },
       });
 
-      // Stale check
       if (searchIdRef.current !== thisSearchId) return;
       if (error) throw error;
 
@@ -277,8 +272,8 @@ export const GongItTab = () => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl -z-10 pointer-events-none" />
 
         <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold shadow-sm">
-          {isEthanTheme ? <Heart className="w-3.5 h-3.5 text-primary animate-pulse fill-primary" /> : <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />}
-          <span>{isEthanTheme ? "Ethan's Chiikawa Briefcase Engine 🎀✨" : "Walt's Gong It Intelligence Engine"}</span>
+          {isChiikawaTheme ? <Heart className="w-3.5 h-3.5 text-primary animate-pulse fill-primary" /> : <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />}
+          <span>{isChiikawaTheme ? "I love being a CSM!!✨" : "Walt's Gong It Intelligence Engine"}</span>
         </div>
 
         <h1 className="text-3xl sm:text-5xl font-extrabold text-foreground tracking-tight flex items-center justify-center gap-2">
@@ -289,7 +284,7 @@ export const GongItTab = () => {
         </p>
 
         {/* Chiikawa Character Row */}
-        {isEthanTheme && (
+        {isChiikawaTheme && (
           <div className="pt-2 flex items-center justify-center gap-6">
             <div className="flex flex-col items-center gap-1 animate-bounce">
               <ChiikawaAvatar />
@@ -358,7 +353,7 @@ export const GongItTab = () => {
               className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-6 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-md disabled:opacity-40 shrink-0"
             >
               <ArrowRight className="w-4 h-4" />
-              <span>{isEthanTheme ? "Gong It 🎀" : "Gong It"}</span>
+              <span>{isChiikawaTheme ? "Gong It 🎀" : "Gong It"}</span>
             </button>
           )}
         </form>
@@ -397,7 +392,7 @@ export const GongItTab = () => {
                 <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                 <h3 className="text-foreground font-bold text-lg flex items-center gap-2">
                   <span>{result.accountName} Briefcase Ready</span>
-                  {isEthanTheme && <ChiikawaAvatar />}
+                  {isChiikawaTheme && <ChiikawaAvatar />}
                 </h3>
               </div>
               <div className="flex flex-wrap gap-3 text-xs text-muted-foreground pt-1">
@@ -445,7 +440,6 @@ export const GongItTab = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Support Cases Column */}
             <div className="bg-card border border-border rounded-xl p-5 space-y-4">
               <div className="flex items-center gap-2 pb-3 border-b border-border">
                 <FileText className="w-4 h-4 text-blue-500" />
@@ -480,7 +474,6 @@ export const GongItTab = () => {
               </div>
             </div>
 
-            {/* Gong Transcripts Column */}
             <div className="bg-card border border-border rounded-xl p-5 space-y-4">
               <div className="flex items-center gap-2 pb-3 border-b border-border">
                 <Phone className="w-4 h-4 text-amber-500" />
