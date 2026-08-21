@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CsmuGuides } from "@/components/directory/csmu-guides";
+import { GongItTab } from "@/components/directory/gong-it";
 import {
   Banknote,
   Compass,
@@ -19,6 +20,7 @@ import {
   Zap,
   Star,
   MessageSquareCode,
+  Sparkles,
 } from "lucide-react";
 
 import { DepartmentView } from "@/components/directory/department-view";
@@ -62,7 +64,7 @@ function DirectoryRoute() {
   );
 }
 
-type ViewId = "directory" | "links" | "csmu" | "glossary" | "feedback";
+type ViewId = "directory" | "gongit" | "links" | "csmu" | "glossary" | "feedback";
 
 function DirectoryPage() {
   const { departments } = useDirectoryStore();
@@ -77,7 +79,7 @@ function DirectoryPage() {
   useEffect(() => {
     try {
       const savedView = localStorage.getItem("csm_directory_active_view");
-      if (savedView && ["directory", "links", "csmu", "glossary", "feedback"].includes(savedView)) {
+      if (savedView && ["directory", "gongit", "links", "csmu", "glossary", "feedback"].includes(savedView)) {
         setView(savedView as ViewId);
       }
       const savedDept = localStorage.getItem("csm_directory_active_dept");
@@ -232,6 +234,7 @@ function DirectoryPage() {
               {(
                 [
                   ["directory", "Department Directory", LayoutGrid],
+                  ["gongit", "Gong It", Sparkles],
                   ["links", "Centralized Link Bank", Link2],
                   ["csmu", "CSMU Guides", GraduationCap],
                   ["glossary", "Glossary & Acronym Finder", BookOpen],
@@ -266,26 +269,25 @@ function DirectoryPage() {
           </div>
 
           {/* Tab Views */}
-          {view === "links" ? (
+          <div className={view === "gongit" ? "block" : "hidden"}>
+            <GongItTab />
+          </div>
+          <div className={view === "links" ? "block" : "hidden"}>
             <LinkBank />
-          ) : view === "csmu" ? (
+          </div>
+          <div className={view === "csmu" ? "block" : "hidden"}>
             <CsmuGuides />
-          ) : view === "glossary" ? (
+          </div>
+          <div className={view === "glossary" ? "block" : "hidden"}>
             <GlossaryFinder />
-          ) : view === "feedback" ? (
+          </div>
+          <div className={view === "feedback" ? "block" : "hidden"}>
             <FeedbackBoard />
-          ) : (
+          </div>
+          {view === "directory" && (
             <div className="space-y-8 pb-4">
-              {/* Prominent Landing Hero: AI Smart Routing Assistant */}
               <NotSureAssistant departments={departments} onGoTo={goTo} />
-
-              {/* Department Escalation View */}
-              <DepartmentView
-                dept={active}
-                placeholdersOnly={false}
-                pulseSection={pulseSection}
-                onGoTo={goTo}
-              />
+              <DepartmentView dept={active} placeholdersOnly={false} pulseSection={pulseSection} onGoTo={goTo} />
             </div>
           )}
         </main>
