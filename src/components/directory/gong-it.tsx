@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Search,
   Download,
@@ -14,11 +14,55 @@ import {
   Clock,
   Layers,
   Zap,
+  XCircle,
+  AlertCircle,
+  Heart,
 } from "lucide-react";
 import { saveAs } from "file-saver";
 import { supabase } from "@/lib/supabase";
 
 const SAMPLE_ACCOUNTS = ["Brenntag", "Jeppesen", "Travelers", "Copado"];
+
+// --- CHIIKAWA CHARACTER SVG ARTWORK ---
+const ChiikawaAvatar = () => (
+  <svg className="w-10 h-10 drop-shadow-md" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="8" cy="8" r="4.5" fill="#FFFFFF" stroke="#333333" strokeWidth="1.5" />
+    <circle cx="24" cy="8" r="4.5" fill="#FFFFFF" stroke="#333333" strokeWidth="1.5" />
+    <circle cx="16" cy="18" r="12.5" fill="#FFFFFF" stroke="#333333" strokeWidth="1.5" />
+    <circle cx="11.5" cy="16" r="1.8" fill="#333333" />
+    <circle cx="20.5" cy="16" r="1.8" fill="#333333" />
+    <ellipse cx="8.5" cy="19" rx="2.5" ry="1.5" fill="#F472B6" />
+    <ellipse cx="23.5" cy="19" rx="2.5" ry="1.5" fill="#F472B6" />
+    <path d="M14 20.5 C15 22, 17 22, 18 20.5" stroke="#333333" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+const HachiwareAvatar = () => (
+  <svg className="w-10 h-10 drop-shadow-md" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M8 10 L4 4 L12 7 Z" fill="#60A5FA" stroke="#333333" strokeWidth="1.5" />
+    <path d="M24 10 L28 4 L20 7 Z" fill="#60A5FA" stroke="#333333" strokeWidth="1.5" />
+    <circle cx="16" cy="18" r="12.5" fill="#FFFFFF" stroke="#333333" strokeWidth="1.5" />
+    <path d="M7.5 12 C10 8, 22 8, 24.5 12 C20 15, 12 15, 7.5 12 Z" fill="#60A5FA" />
+    <circle cx="11.5" cy="17" r="1.8" fill="#333333" />
+    <circle cx="20.5" cy="17" r="1.8" fill="#333333" />
+    <ellipse cx="8.5" cy="20" rx="2" ry="1.2" fill="#F472B6" />
+    <ellipse cx="23.5" cy="20" rx="2" ry="1.2" fill="#F472B6" />
+    <path d="M14.5 20.5 C15.5 22, 16.5 22, 17.5 20.5" stroke="#333333" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+const UsagiAvatar = () => (
+  <svg className="w-10 h-10 drop-shadow-md" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="9" y="1" width="4" height="12" rx="2" fill="#FEF08A" stroke="#333333" strokeWidth="1.5" />
+    <rect x="19" y="1" width="4" height="12" rx="2" fill="#FEF08A" stroke="#333333" strokeWidth="1.5" />
+    <circle cx="16" cy="19" r="11.5" fill="#FEF08A" stroke="#333333" strokeWidth="1.5" />
+    <circle cx="11.5" cy="17" r="1.8" fill="#333333" />
+    <circle cx="20.5" cy="17" r="1.8" fill="#333333" />
+    <ellipse cx="8.5" cy="20" rx="2" ry="1.2" fill="#F472B6" />
+    <ellipse cx="23.5" cy="20" rx="2" ry="1.2" fill="#F472B6" />
+    <ellipse cx="16" cy="21" rx="2.5" ry="2" fill="#EF4444" stroke="#333333" strokeWidth="1" />
+  </svg>
+);
 
 export const GongItTab = () => {
   const [accountName, setAccountName] = useState("");
@@ -26,37 +70,94 @@ export const GongItTab = () => {
   const [progressStage, setProgressStage] = useState<number>(0);
   const [progressText, setProgressText] = useState<string>("");
   const [result, setResult] = useState<any>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copiedPromptIndex, setCopiedPromptIndex] = useState<number | null>(null);
+  const [isEthanTheme, setIsEthanTheme] = useState(false);
+
+  // Request token and timer ref for instant cancellation
+  const searchIdRef = useRef<number>(0);
+  const activeTimersRef = useRef<NodeJS.Timeout[]>([]);
+
+  useEffect(() => {
+    const checkTheme = () => {
+      const active = localStorage.getItem("csm_accent_theme");
+      setIsEthanTheme(active === "ethan");
+    };
+    checkTheme();
+    window.addEventListener("storage", checkTheme);
+    const interval = setInterval(checkTheme, 1000);
+    return () => {
+      window.removeEventListener("storage", checkTheme);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleCancelSearch = () => {
+    // Increment search token so any in-flight promise resolves as stale
+    searchIdRef.current += 1;
+
+    activeTimersRef.current.forEach(clearTimeout);
+    activeTimersRef.current = [];
+
+    setLoading(false);
+    setProgressStage(0);
+    setProgressText("");
+    setErrorMsg("Search cancelled.");
+  };
 
   const executeSearch = async (targetAccount: string) => {
-    if (!targetAccount.trim()) return;
+    const trimmed = targetAccount.trim();
+    if (!trimmed) return;
 
+    searchIdRef.current += 1;
+    const thisSearchId = searchIdRef.current;
+
+    activeTimersRef.current.forEach(clearTimeout);
+    activeTimersRef.current = [];
+
+    setErrorMsg(null);
     setLoading(true);
     setResult(null);
     setProgressStage(1);
-    setProgressText("Querying Supabase database for high-value cases...");
+    setProgressText(
+      isEthanTheme
+        ? "Chiikawa is checking Supabase... 🎀"
+        : "Querying Supabase database for support cases..."
+    );
+
+    const timer1 = setTimeout(() => {
+      if (searchIdRef.current === thisSearchId) {
+        setProgressStage(2);
+        setProgressText(
+          isEthanTheme
+            ? "Hachiware is matching Gong transcripts... 🐱"
+            : "Extracting email domains & querying Gong API..."
+        );
+      }
+    }, 1200);
+
+    const timer2 = setTimeout(() => {
+      if (searchIdRef.current === thisSearchId) {
+        setProgressStage(3);
+        setProgressText(
+          isEthanTheme
+            ? "Usagi is packing Walt's Briefcase! YAHA! 🐰"
+            : "Synthesizing transcripts & building Briefcase..."
+        );
+      }
+    }, 2400);
+
+    activeTimersRef.current.push(timer1, timer2);
 
     try {
-      const timer1 = setTimeout(() => {
-        setProgressStage(2);
-        setProgressText("Extracting email domains & querying Gong API...");
-      }, 1200);
-
-      const timer2 = setTimeout(() => {
-        setProgressStage(3);
-        setProgressText("Synthesizing transcripts & building Markdown briefcase...");
-      }, 2400);
-
       const { data, error } = await supabase.functions.invoke("gong-it", {
-        body: { accountName: targetAccount.trim(), daysBack: 365 },
+        body: { accountName: trimmed, daysBack: 365 },
       });
 
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-
+      // Stale check
+      if (searchIdRef.current !== thisSearchId) return;
       if (error) throw error;
 
-      // Deduplicate cases by case_number
       const uniqueCasesMap = new Map();
       (data.cases || []).forEach((c: any) => {
         if (c.case_number && !uniqueCasesMap.has(c.case_number)) {
@@ -69,11 +170,16 @@ export const GongItTab = () => {
         cases: Array.from(uniqueCasesMap.values()),
       });
     } catch (err: any) {
+      if (searchIdRef.current !== thisSearchId) return;
+
       console.error("Gong It error:", err);
+      setErrorMsg(err.message || "Failed to fetch account intelligence.");
     } finally {
-      setLoading(false);
-      setProgressStage(0);
-      setProgressText("");
+      if (searchIdRef.current === thisSearchId) {
+        setLoading(false);
+        setProgressStage(0);
+        setProgressText("");
+      }
     }
   };
 
@@ -100,7 +206,6 @@ export const GongItTab = () => {
     md += `*Generated on: ${new Date().toLocaleDateString()} | Curated via Walt's Gong It Workflow*\n\n`;
     md += `---\n\n`;
 
-    // 1. NotebookLM Suggested Prompts
     md += `## 1. WALT'S NOTEBOOK LM PROMPTS\n\n`;
     md += `**Prompt 1 (Initial Source Analysis):**\n`;
     md += `> "Referencing all uploaded sources on ${result.accountName}, summarize their budgeting, hiring, company initiatives, and DevOps team structure."\n\n`;
@@ -110,7 +215,6 @@ export const GongItTab = () => {
     md += `> "I have uploaded an artifact from NotebookLM that gives a comprehensive overview of ${result.accountName} and their goals, strengths, and pain points. Build a plan to address their problems that we can present to them."\n\n`;
     md += `---\n\n`;
 
-    // 2. Support Cases Report
     md += `## 2. SUPPORT CASES REPORT (${result.cases.length} Unique Cases)\n\n`;
     if (result.cases.length === 0) {
       md += `*No active support cases recorded for this account.*\n\n`;
@@ -131,7 +235,6 @@ export const GongItTab = () => {
 
     md += `---\n\n`;
 
-    // 3. Gong Call Transcripts
     md += `## 3. GONG CALL TRANSCRIPTS (${result.transcripts?.length || 0} Calls Matched)\n\n`;
     if (!result.transcripts || result.transcripts.length === 0) {
       md += `*No recent Gong call transcripts matched this account.*\n\n`;
@@ -168,22 +271,46 @@ export const GongItTab = () => {
   ];
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
+    <div className="p-6 max-w-6xl mx-auto space-y-8 relative">
       {/* Hero Section */}
       <div className="relative text-center space-y-4 pt-6 pb-2 overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl -z-10 pointer-events-none" />
 
         <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold shadow-sm">
-          <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />
-          <span>Walt's "Gong It" Intelligence Engine</span>
+          {isEthanTheme ? <Heart className="w-3.5 h-3.5 text-primary animate-pulse fill-primary" /> : <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />}
+          <span>{isEthanTheme ? "Ethan's Chiikawa Briefcase Engine 🎀✨" : "Walt's Gong It Intelligence Engine"}</span>
         </div>
 
-        <h1 className="text-3xl sm:text-5xl font-extrabold text-foreground tracking-tight">
-          What account are we analyzing today?
+        <h1 className="text-3xl sm:text-5xl font-extrabold text-foreground tracking-tight flex items-center justify-center gap-2">
+          <span>What account are we analyzing today?</span>
         </h1>
         <p className="text-muted-foreground text-sm max-w-xl mx-auto leading-relaxed">
           Pulls live support cases from Supabase & call transcripts from Gong into a single NotebookLM Briefcase.
         </p>
+
+        {/* Chiikawa Character Row */}
+        {isEthanTheme && (
+          <div className="pt-2 flex items-center justify-center gap-6">
+            <div className="flex flex-col items-center gap-1 animate-bounce">
+              <ChiikawaAvatar />
+              <span className="text-[11px] font-bold text-pink-600 dark:text-pink-300 bg-pink-100 dark:bg-pink-950/80 px-2 py-0.5 rounded-full border border-pink-300 dark:border-pink-800">
+                Chiikawa "Yaha!"
+              </span>
+            </div>
+            <div className="flex flex-col items-center gap-1 animate-bounce [animation-delay:200ms]">
+              <HachiwareAvatar />
+              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/80 px-2 py-0.5 rounded-full border border-blue-300 dark:border-blue-800">
+                Hachiware "Ura!"
+              </span>
+            </div>
+            <div className="flex flex-col items-center gap-1 animate-bounce [animation-delay:400ms]">
+              <UsagiAvatar />
+              <span className="text-[11px] font-bold text-amber-600 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
+                Usagi "Fuwa!"
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* 1-Click Sample Chips */}
         <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
@@ -215,17 +342,27 @@ export const GongItTab = () => {
             disabled={loading}
             className="w-full bg-transparent border-none text-foreground text-base placeholder:text-muted-foreground focus:outline-none focus:ring-0 px-2 py-2"
           />
-          <button
-            type="submit"
-            disabled={loading || !accountName.trim()}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-6 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-md disabled:opacity-40 shrink-0"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-            <span>{loading ? "Gonging..." : "Gong It"}</span>
-          </button>
+          {loading ? (
+            <button
+              type="button"
+              onClick={handleCancelSearch}
+              className="bg-rose-600/10 hover:bg-rose-600/20 text-rose-500 border border-rose-500/30 font-semibold px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-all text-xs shrink-0"
+            >
+              <XCircle className="w-4 h-4" />
+              <span>Cancel</span>
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!accountName.trim()}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-6 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-md disabled:opacity-40 shrink-0"
+            >
+              <ArrowRight className="w-4 h-4" />
+              <span>{isEthanTheme ? "Gong It 🎀" : "Gong It"}</span>
+            </button>
+          )}
         </form>
 
-        {/* Multi-Stage Active Progress Indicator */}
         {loading && (
           <div className="mt-3 pt-3 border-t border-border px-3 space-y-2">
             <div className="flex items-center justify-between text-xs">
@@ -235,7 +372,6 @@ export const GongItTab = () => {
               </span>
               <span className="text-muted-foreground italic font-mono">Stage {progressStage}/3</span>
             </div>
-            {/* Visual Progress Bar */}
             <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
               <div
                 className="bg-primary h-full transition-all duration-700 ease-out"
@@ -244,18 +380,24 @@ export const GongItTab = () => {
             </div>
           </div>
         )}
+
+        {errorMsg && (
+          <div className="mt-3 pt-2 text-xs text-rose-500 flex items-center gap-1.5 px-3">
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
       </div>
 
-      {/* Results View */}
       {result && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          {/* Key Metrics & Download Action Banner */}
           <div className="bg-gradient-to-r from-card via-primary/5 to-card border border-primary/20 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                <h3 className="text-foreground font-bold text-lg">
-                  {result.accountName} Briefcase Ready
+                <h3 className="text-foreground font-bold text-lg flex items-center gap-2">
+                  <span>{result.accountName} Briefcase Ready</span>
+                  {isEthanTheme && <ChiikawaAvatar />}
                 </h3>
               </div>
               <div className="flex flex-wrap gap-3 text-xs text-muted-foreground pt-1">
@@ -282,7 +424,6 @@ export const GongItTab = () => {
             </button>
           </div>
 
-          {/* Quick Copy Prompts Bar */}
           <div className="bg-card border border-border p-4 rounded-xl space-y-3">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-primary" /> Walt's NotebookLM Prompts
@@ -303,7 +444,6 @@ export const GongItTab = () => {
             </div>
           </div>
 
-          {/* Dual Columns Preview */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Support Cases Column */}
             <div className="bg-card border border-border rounded-xl p-5 space-y-4">
