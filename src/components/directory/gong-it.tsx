@@ -17,6 +17,7 @@ import {
   XCircle,
   AlertCircle,
   Heart,
+  RefreshCw,
 } from "lucide-react";
 import { saveAs } from "file-saver";
 import { supabase } from "@/lib/supabase";
@@ -24,7 +25,7 @@ import { supabase } from "@/lib/supabase";
 const SAMPLE_ACCOUNTS = ["Brenntag", "Jeppesen", "Travelers", "Copado"];
 
 const ChiikawaAvatar = () => (
-  <svg className="w-10 h-10 drop-shadow-md" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg className="w-9 h-9 drop-shadow-sm" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="8" cy="8" r="4.5" fill="#FFFFFF" stroke="#333333" strokeWidth="1.5" />
     <circle cx="24" cy="8" r="4.5" fill="#FFFFFF" stroke="#333333" strokeWidth="1.5" />
     <circle cx="16" cy="18" r="12.5" fill="#FFFFFF" stroke="#333333" strokeWidth="1.5" />
@@ -37,9 +38,9 @@ const ChiikawaAvatar = () => (
 );
 
 const HachiwareAvatar = () => (
-  <svg className="w-10 h-10 drop-shadow-md" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg className="w-9 h-9 drop-shadow-sm" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M8 10 L4 4 L12 7 Z" fill="#60A5FA" stroke="#333333" strokeWidth="1.5" />
-    <path d="M24 10 L28 4 L20 7 Z" fill="#60A5FA" stroke="#333333" strokeWidth="1.5" />
+    <path d="M24 10 L28 4 L12 7 Z" fill="#60A5FA" stroke="#333333" strokeWidth="1.5" />
     <circle cx="16" cy="18" r="12.5" fill="#FFFFFF" stroke="#333333" strokeWidth="1.5" />
     <path d="M7.5 12 C10 8, 22 8, 24.5 12 C20 15, 12 15, 7.5 12 Z" fill="#60A5FA" />
     <circle cx="11.5" cy="17" r="1.8" fill="#333333" />
@@ -51,7 +52,7 @@ const HachiwareAvatar = () => (
 );
 
 const UsagiAvatar = () => (
-  <svg className="w-10 h-10 drop-shadow-md" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg className="w-9 h-9 drop-shadow-sm" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect x="9" y="1" width="4" height="12" rx="2" fill="#FEF08A" stroke="#333333" strokeWidth="1.5" />
     <rect x="19" y="1" width="4" height="12" rx="2" fill="#FEF08A" stroke="#333333" strokeWidth="1.5" />
     <circle cx="16" cy="19" r="11.5" fill="#FEF08A" stroke="#333333" strokeWidth="1.5" />
@@ -69,6 +70,7 @@ export const GongItTab = () => {
   const [progressStage, setProgressStage] = useState<number>(0);
   const [progressText, setProgressText] = useState<string>("");
   const [result, setResult] = useState<any>(null);
+  const [isCachedResult, setIsCachedResult] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copiedPromptIndex, setCopiedPromptIndex] = useState<number | null>(null);
   const [isChiikawaTheme, setIsChiikawaTheme] = useState(false);
@@ -101,10 +103,28 @@ export const GongItTab = () => {
     setErrorMsg("Search cancelled.");
   };
 
-  const executeSearch = async (targetAccount: string) => {
+  const executeSearch = async (targetAccount: string, forceFresh = false) => {
     const trimmed = targetAccount.trim();
     if (!trimmed) return;
 
+    // Check Local Storage Cache First
+    const cacheKey = `csm_briefcase_cache_${trimmed.toLowerCase()}`;
+    if (!forceFresh) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          setResult(parsed);
+          setIsCachedResult(true);
+          setErrorMsg(null);
+          return;
+        } catch {
+          /* ignore cache error */
+        }
+      }
+    }
+
+    setIsCachedResult(false);
     searchIdRef.current += 1;
     const thisSearchId = searchIdRef.current;
 
@@ -137,7 +157,7 @@ export const GongItTab = () => {
         setProgressStage(3);
         setProgressText(
           isChiikawaTheme
-            ? "Packaging the Briefcase! YAHA! 🐰"
+            ? "Packaging Walt's Briefcase! YAHA! 🐰"
             : "Synthesizing transcripts & building Briefcase..."
         );
       }
@@ -160,13 +180,15 @@ export const GongItTab = () => {
         }
       });
 
-      setResult({
+      const finalPayload = {
         ...data,
         cases: Array.from(uniqueCasesMap.values()),
-      });
+      };
+
+      setResult(finalPayload);
+      localStorage.setItem(cacheKey, JSON.stringify(finalPayload));
     } catch (err: any) {
       if (searchIdRef.current !== thisSearchId) return;
-
       console.error("Gong It error:", err);
       setErrorMsg(err.message || "Failed to fetch account intelligence.");
     } finally {
@@ -194,20 +216,35 @@ export const GongItTab = () => {
     setTimeout(() => setCopiedPromptIndex(null), 2000);
   };
 
+  // Detect Package Versions for Copado AI Prompt Pre-filling
+  const detectVersions = () => {
+    if (!result || !result.transcripts) return { deployer: "25.12", connect: "4.8" };
+    const text = JSON.stringify(result.transcripts);
+    const deployerMatch = text.match(/(?:deployer|version|v)\s*(\d{2}\.\d+)/i);
+    const connectMatch = text.match(/(?:connect)\s*(\d+\.\d+)/i);
+    return {
+      deployer: deployerMatch ? deployerMatch[1] : "25.12",
+      connect: connectMatch ? connectMatch[1] : "4.8",
+    };
+  };
+
+  const versions = detectVersions();
+
   const downloadSingleMarkdownArtifact = () => {
     if (!result) return;
 
     let md = `# WALT'S VAULT BRIEFCASE: ${result.accountName.toUpperCase()}\n`;
-    md += `*Generated on: ${new Date().toLocaleDateString()} | Curated via Walt's Gong It Workflow*\n\n`;
+    md += `*Generated on: ${new Date().toLocaleDateString()} | Curated via Walt's Gong It Workflow*\n`;
+    md += `*Detected Versions:* Copado Deployer v${versions.deployer} | Copado Connect v${versions.connect}\n\n`;
     md += `---\n\n`;
 
     md += `## 1. WALT'S NOTEBOOK LM PROMPTS\n\n`;
     md += `**Prompt 1 (Initial Source Analysis):**\n`;
     md += `> "Referencing all uploaded sources on ${result.accountName}, summarize their budgeting, hiring, company initiatives, and DevOps team structure."\n\n`;
-    md += `**Prompt 2 (Churn Risk & Strategic Priorities):**\n`;
-    md += `> "Referencing recent transcripts, emails, and support cases, generate what are ${result.accountName}'s strategic initiatives and priorities. Include Gong's response on the customer's issue and churn risk, and how we can save them."\n\n`;
-    md += `**Prompt 3 (Copado AI Plan Input):**\n`;
-    md += `> "I have uploaded an artifact from NotebookLM that gives a comprehensive overview of ${result.accountName} and their goals, strengths, and pain points. Build a plan to address their problems that we can present to them."\n\n`;
+    md += `**Prompt 2 (Strategic Priorities & Gong Sentiment):**\n`;
+    md += `> "Referencing recent transcripts, emails, and support cases, generate what are ${result.accountName}'s strategic initiatives and priorities."\n\n`;
+    md += `**Prompt 3 (Copado AI Plan Input - Pre-filled with v${versions.deployer} & v${versions.connect}):**\n`;
+    md += `> "I have uploaded an artifact from NotebookLM that gives a comprehensive overview of ${result.accountName} (currently running Copado Deployer v${versions.deployer} and Copado Connect v${versions.connect}) and their goals, strengths, and pain points. Build a plan to address their problems that we can present to them."\n\n`;
     md += `---\n\n`;
 
     md += `## 2. SUPPORT CASES REPORT (${result.cases.length} Unique Cases)\n\n`;
@@ -261,29 +298,26 @@ export const GongItTab = () => {
 
   const prompts = [
     `Referencing all uploaded sources on ${accountName || "Customer"}, summarize their budgeting, hiring, company initiatives, and DevOps team structure.`,
-    `Referencing recent transcripts, emails, and support cases, generate what are ${accountName || "Customer"}'s strategic initiatives and priorities. Include Gong's response on the customer's issue and churn risk, and how we can save them.`,
-    `I have uploaded an artifact from NotebookLM that gives a comprehensive overview of ${accountName || "Customer"} and their goals, strengths, and pain points. Build a plan to address their problems that we can present to them.`,
+    `Referencing recent transcripts, emails, and support cases, generate what are ${accountName || "Customer"}'s strategic initiatives and priorities.`,
+    `I have uploaded an artifact from NotebookLM that gives a comprehensive overview of ${accountName || "Customer"} (Running Copado Deployer v${versions.deployer}) and their goals, strengths, and pain points. Build a plan to address their problems that we can present to them.`,
   ];
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8 relative">
       {/* Hero Section */}
-      <div className="relative text-center space-y-4 pt-6 pb-2 overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl -z-10 pointer-events-none" />
-
+      <div className="relative text-center space-y-3 pt-4 pb-2">
         <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold shadow-sm">
-          {isChiikawaTheme ? <Heart className="w-3.5 h-3.5 text-primary animate-pulse fill-primary" /> : <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />}
-          <span>{isChiikawaTheme ? "I love being a CSM!!✨" : "Walt's Gong It Intelligence Engine"}</span>
+          {isChiikawaTheme ? <Heart className="w-3.5 h-3.5 text-primary fill-primary animate-pulse" /> : <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />}
+          <span>{isChiikawaTheme ? "Chiikawa Briefcase Engine 🎀✨" : "Walt's Gong It Intelligence Engine"}</span>
         </div>
 
-        <h1 className="text-3xl sm:text-5xl font-extrabold text-foreground tracking-tight flex items-center justify-center gap-2">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight flex items-center justify-center gap-2">
           <span>What account are we analyzing today?</span>
         </h1>
         <p className="text-muted-foreground text-sm max-w-xl mx-auto leading-relaxed">
           Pulls live support cases from Supabase & call transcripts from Gong into a single NotebookLM Briefcase.
         </p>
 
-        {/* Chiikawa Character Row */}
         {isChiikawaTheme && (
           <div className="pt-2 flex items-center justify-center gap-6">
             <div className="flex flex-col items-center gap-1 animate-bounce">
@@ -308,7 +342,7 @@ export const GongItTab = () => {
         )}
 
         {/* 1-Click Sample Chips */}
-        <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+        <div className="pt-1 flex flex-wrap items-center justify-center gap-2">
           <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium mr-1">
             <Zap className="w-3 h-3 text-amber-500" /> Try Sample:
           </span>
@@ -325,8 +359,8 @@ export const GongItTab = () => {
         </div>
       </div>
 
-      {/* Centered Prompt Bar */}
-      <div className="relative bg-card border border-border p-2 sm:p-3 rounded-2xl shadow-lg backdrop-blur-xl transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+      {/* Centered Search Card */}
+      <div className="bg-card border border-border p-2 sm:p-3 rounded-2xl shadow-sm">
         <form onSubmit={handleFormSubmit} className="flex items-center gap-2">
           <Search className="w-5 h-5 text-primary ml-3 shrink-0" />
           <input
@@ -386,21 +420,37 @@ export const GongItTab = () => {
 
       {result && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="bg-gradient-to-r from-card via-primary/5 to-card border border-primary/20 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
+          {/* Key Metrics & Action Banner */}
+          <div className="bg-card border border-border p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
                 <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                 <h3 className="text-foreground font-bold text-lg flex items-center gap-2">
                   <span>{result.accountName} Briefcase Ready</span>
                   {isChiikawaTheme && <ChiikawaAvatar />}
                 </h3>
+
+                {/* Local Storage Cache Indicator */}
+                {isCachedResult && (
+                  <button
+                    onClick={() => executeSearch(result.accountName, true)}
+                    className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 bg-muted px-2.5 py-0.5 rounded-full border border-border transition-colors"
+                    title="Click to re-query live Supabase & Gong APIs"
+                  >
+                    <RefreshCw className="w-2.5 h-2.5" /> Cached (Refresh Live)
+                  </button>
+                )}
               </div>
+
               <div className="flex flex-wrap gap-3 text-xs text-muted-foreground pt-1">
                 <span className="flex items-center gap-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded-md font-mono">
                   <FileText className="w-3.5 h-3.5 text-blue-500" /> {result.cases?.length || 0} Unique Cases
                 </span>
                 <span className="flex items-center gap-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2.5 py-1 rounded-md font-mono">
                   <Phone className="w-3.5 h-3.5 text-amber-500" /> {result.transcripts?.length || 0} Gong Calls
+                </span>
+                <span className="flex items-center gap-1.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-2.5 py-1 rounded-md font-mono">
+                  Deployer v{versions.deployer}
                 </span>
                 {result.autoDomains?.length > 0 && (
                   <span className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-md font-mono">

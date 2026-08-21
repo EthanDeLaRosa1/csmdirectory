@@ -21,6 +21,8 @@ import {
   Star,
   MessageSquareCode,
   Sparkles,
+  Settings,
+  X,
 } from "lucide-react";
 
 import { DepartmentView } from "@/components/directory/department-view";
@@ -74,8 +76,8 @@ function DirectoryPage() {
   const [pulseSection, setPulseSection] = useState<string | null>(null);
   const [starredDepts, setStarredDepts] = useState<string[]>([]);
   const [slackModalOpen, setSlackModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Restore saved view, department, and starred items after hydration
   useEffect(() => {
     try {
       const savedView = localStorage.getItem("csm_directory_active_view");
@@ -132,35 +134,35 @@ function DirectoryPage() {
   const active = departments.find((d) => d.id === activeId) ?? departments[0]!;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Header Bar */}
-      <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-5 py-2.5">
-          {/* Brand Logo */}
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold shadow-sm">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
+      {/* Sleek Floating Top Navigation Bar */}
+      <header className="mx-auto max-w-[1500px] px-5 pt-4">
+        <div className="flex items-center justify-between gap-4 py-2">
+          {/* Minimal Brand Identifier */}
+          <div className="flex items-center gap-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold shadow-sm">
               <Zap className="size-4 fill-current" />
             </span>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold tracking-tight">Copado CS Command Center</span>
-              <span className="hidden sm:inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                Mission Control
-              </span>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold tracking-tight">Copado CS Command Center</span>
+              <span className="text-[10px] text-muted-foreground font-mono">Mission Control</span>
             </div>
           </div>
 
-          {/* Right Controls */}
-          <div className="flex items-center gap-2 shrink-0">
-            <ColorThemePicker />
-            <AdminToggle />
-            <ThemeToggle />
-          </div>
+          {/* Quick Settings Gear Toggle */}
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card/60 text-muted-foreground hover:text-foreground hover:bg-accent transition-all text-xs font-medium"
+          >
+            <Settings className="size-3.5" />
+            <span>Settings</span>
+          </button>
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-[1500px] gap-8 px-5">
+      <div className="mx-auto flex max-w-[1500px] gap-8 px-5 pt-2">
         {/* Sidebar Navigation */}
-        <nav className="sticky top-[53px] hidden h-[calc(100vh-53px)] w-64 shrink-0 overflow-y-auto py-5 lg:block pr-2">
+        <nav className="sticky top-5 hidden h-[calc(100vh-40px)] w-60 shrink-0 overflow-y-auto py-3 lg:block pr-2">
           {starredDepts.length > 0 ? (
             <div className="mb-4">
               <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-500 flex items-center gap-1">
@@ -227,9 +229,9 @@ function DirectoryPage() {
         </nav>
 
         {/* Main Workspace */}
-        <main className="min-w-0 flex-1 py-6">
-          {/* Main Navigation Bar */}
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card p-1">
+        <main className="min-w-0 flex-1 py-3">
+          {/* Main Navigation Tabs */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
             <div className="flex flex-wrap gap-1">
               {(
                 [
@@ -244,13 +246,13 @@ function DirectoryPage() {
                 <button
                   key={id}
                   onClick={() => handleTabChange(id)}
-                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
                     view === id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-accent"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   }`}
                 >
-                  <TabIcon className="size-4" />
+                  <TabIcon className="size-3.5" />
                   {label}
                 </button>
               ))}
@@ -261,14 +263,14 @@ function DirectoryPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => setSlackModalOpen(true)}
-                className="text-xs gap-1.5"
+                className="text-xs gap-1.5 h-8"
               >
                 <MessageSquareCode className="size-3.5 text-sky-500" /> Copy Slack Intake
               </Button>
             ) : null}
           </div>
 
-          {/* Tab Views */}
+          {/* Unmounted Active Tab View Panels */}
           <div className={view === "gongit" ? "block" : "hidden"}>
             <GongItTab />
           </div>
@@ -292,6 +294,61 @@ function DirectoryPage() {
           )}
         </main>
       </div>
+
+      {/* Settings Modal Drawer */}
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex justify-end animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-card border-l border-border h-full p-6 space-y-6 shadow-2xl flex flex-col justify-between">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-border pb-4">
+                <div className="flex items-center gap-2">
+                  <Settings className="size-4 text-primary" />
+                  <h3 className="font-bold text-sm text-foreground">Command Settings</h3>
+                </div>
+                <button
+                  onClick={() => setSettingsOpen(false)}
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Color Accent
+                  </label>
+                  <ColorThemePicker />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Appearance Mode
+                  </label>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                    <span className="text-xs font-medium">Dark / Light Mode</span>
+                    <ThemeToggle />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Admin Mode
+                  </label>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                    <span className="text-xs font-medium font-mono text-muted-foreground">PIN Auth</span>
+                    <AdminToggle />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-muted-foreground font-mono text-center pt-4 border-t border-border">
+              Copado CS Command Center v2.4
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Slack Escalation Snippet Modal */}
       <SlackIntakeModal
