@@ -652,9 +652,6 @@ export const GongItTab = () => {
             <option value="90">90 Days</option>
             <option value="180">180 Days</option>
             <option value="365">1 Year</option>
-            <option value="730">2 Years</option>
-            <option value="1095">3 Years</option>
-            <option value="1460">4 Years</option>
           </select>
 
           {loading ? (

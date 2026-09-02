@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const MAX_CALLS_TO_PROCESS = 150;
 const TRANSCRIPT_BATCH_SIZE = 50;
-const MAX_GONG_SEARCH_DAYS = 1460;
+const MAX_GONG_SEARCH_DAYS = 365;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
