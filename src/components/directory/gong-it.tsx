@@ -23,7 +23,8 @@ import {
   ExternalLink,
   Users,
 } from "lucide-react";
-import { saveAs } from "file-saver";
+import fileSaver from "file-saver";
+const { saveAs } = fileSaver as any;
 import { supabase } from "@/lib/supabase";
 
 const SAMPLE_ACCOUNTS = ["Brenntag", "Jeppesen", "Travelers", "Copado", "The Nebraska Medical Center"];

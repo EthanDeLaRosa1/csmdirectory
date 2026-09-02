@@ -132,55 +132,127 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const [isAccessDenied, setIsAccessDenied] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   useEffect(() => {
-    // 1. Initial Auth Check on Mount
-    const checkUserDomain = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email && !user.email.toLowerCase().endsWith("@copado.com")) {
-        setIsAccessDenied(true);
-        await supabase.auth.signOut();
-      }
-    };
-
-    checkUserDomain();
-
-    // 2. Real-time Auth Listener for Login Events
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user?.email && !session.user.email.toLowerCase().endsWith("@copado.com")) {
-        setIsAccessDenied(true);
-        await supabase.auth.signOut();
-      } else {
-        setIsAccessDenied(false);
-      }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
     });
 
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  if (isAccessDenied) {
+  useEffect(() => {
+    const emailAddr = session?.user?.email;
+    if (emailAddr && !emailAddr.toLowerCase().endsWith("@copado.com")) {
+      setError("Access restricted. You must use a @copado.com email address.");
+      supabase.auth.signOut();
+      setSession(null);
+    }
+  }, [session]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!email.toLowerCase().trim().endsWith("@copado.com")) {
+      setError("Access restricted. You must use a @copado.com email address.");
+      return;
+    }
+
+    if (isSignUp) {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setError(error.message);
+      else {
+        alert("Account created! Check your email for confirmation.");
+        setIsSignUp(false);
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setError(error.message);
+    }
+  };
+
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="max-w-md text-center space-y-4">
-          <div className="mx-auto w-12 h-12 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center border border-rose-500/20">
-            <ShieldAlert className="w-6 h-6" />
+        <div className="text-sm text-muted-foreground">Loading Command Center...</div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="w-full max-w-sm border border-border p-6 rounded-2xl shadow-lg bg-card space-y-4">
+          <div className="text-center space-y-1">
+            <h2 className="text-xl font-bold text-foreground">Copado CS Command Center</h2>
+            <p className="text-xs text-muted-foreground">
+              {isSignUp ? "Create an account with your" : "Sign in with your"}{" "}
+              <strong className="text-foreground">@copado.com</strong> email
+            </p>
           </div>
-          <h2 className="text-xl font-bold text-foreground">Copado Employee Access Only</h2>
-          <p className="text-sm text-muted-foreground">
-            This internal directory is strictly restricted to accounts registered with an <span className="font-semibold text-foreground">@copado.com</span> email address.
-          </p>
-          <button
-            onClick={() => {
-              setIsAccessDenied(false);
-              window.location.href = "/";
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            Return to Sign In
-          </button>
+
+          {error && (
+            <div className="bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs p-3 rounded-xl">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <input
+                type="email"
+                required
+                placeholder="name@copado.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-muted/40 border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div>
+              <input
+                type="password"
+                required
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-muted/40 border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-primary text-primary-foreground font-semibold py-2.5 rounded-xl text-xs hover:opacity-90 transition-all shadow-md"
+            >
+              {isSignUp ? "Sign Up" : "Sign In"}
+            </button>
+          </form>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError(null);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              {isSignUp ? "Already have an account? Sign In" : "Need an account? Sign Up"}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -188,7 +260,6 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster position="bottom-right" />
     </QueryClientProvider>
