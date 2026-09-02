@@ -267,13 +267,13 @@ function DirectoryPage() {
           <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1">
             {(
               [
-                ["directory", "Department Directory", LayoutGrid],
+                ["directory", "Directory", LayoutGrid],
                 ["gongit", "Gong It", Sparkles],
-                ["servicenow", "ServiceNow Signals", Sparkles],
-                ["links", "Link Bank", Link2],
-                ["csmu", "CSMU Guides", GraduationCap],
-                ["glossary", "Glossary & Acronym Finder", BookOpen],
-                ["feedback", "CSM Feedback & Wishlist", MessageSquarePlus],
+                ["servicenow", "Signals", Sparkles],
+                ["links", "Links", Link2],
+                ["csmu", "CSMU", GraduationCap],
+                ["glossary", "Glossary", BookOpen],
+                ["feedback", "Wishlist", MessageSquarePlus],
               ] as [ViewId, string, typeof LifeBuoy][]
             ).map(([id, label, TabIcon]) => (
               <button
@@ -480,8 +480,8 @@ function DirectoryPage() {
                       onChange={(e) => setDefaultView(e.target.value as ViewId)}
                       className="w-full rounded-md border border-border/50 bg-card/40 px-3 py-2 text-sm"
                     >
-                      <option value="directory">Department Directory</option>
-                      <option value="gongit">Gong It</option>
+                      <option value="directory">Directory</option>
+                      <option value="gongit">Gong</option>
                       <option value="servicenow">ServiceNow Signals</option>
                       <option value="links">Link Bank</option>
                       <option value="csmu">CSMU Guides</option>
